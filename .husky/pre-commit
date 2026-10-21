@@ -1,0 +1,1 @@
+cd colosseum_web && npx lint-staged
