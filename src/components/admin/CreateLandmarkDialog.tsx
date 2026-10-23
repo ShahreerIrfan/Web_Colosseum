@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { landmarkApi, type CreateLandmarkInput } from '@/apis/landmark/landmarkApi';
+import { uploadApi } from '@/apis/upload/uploadApi';
 import type { Landmark } from '@/types/api/landmarkTypes';
 import useToast from '@/hooks/component/useToast';
 import { LocationPickerMap } from './LocationPickerMap';
@@ -22,6 +23,9 @@ import {
   Compass,
   Layers,
   RotateCcw,
+  CheckCircle2,
+  Trash2,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 interface CreateLandmarkDialogProps {
@@ -35,7 +39,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
   onOpenChange,
   onCreated,
 }) => {
-  const { showSuccess, showError } = useToast();
+  const { showSuccess, showError, showInfo } = useToast();
   const publishId = useId();
 
   // Form State - Defaulted to Colosseum coordinates as the origin pin
@@ -51,6 +55,11 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
   const [widthMeters, setWidthMeters] = useState<number | string>('');
   const [heightMeters, setHeightMeters] = useState<number | string>('');
   const [assetFileName, setAssetFileName] = useState('');
+  const [assetUrl, setAssetUrl] = useState('');
+  const [cloudinaryPublicId, setCloudinaryPublicId] = useState('');
+  const [isUploadingAsset, setIsUploadingAsset] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [category, setCategory] = useState('Monument');
   const [colorHex, setColorHex] = useState('#DD1110');
   const [iconSymbol, setIconSymbol] = useState('🏛️');
@@ -107,6 +116,57 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
     setCode(slugify(name));
   };
 
+  const handleFileUpload = async (file: File) => {
+    const isValidExtension = file.name.match(/\.(svg|png|jpe?g|webp)$/i);
+    if (!isValidExtension) {
+      showError('Unsupported File', 'Please select an SVG floor plan or PNG/JPG overlay file.');
+      return;
+    }
+
+    const localPreview = URL.createObjectURL(file);
+    setPreviewUrl(localPreview);
+    setAssetFileName(file.name);
+
+    // Dynamic folder name derived from current code or name
+    const targetSlug = (code.trim() || slugify(name) || 'temp_monument').replace(/^_+|_+$/g, '');
+
+    try {
+      setIsUploadingAsset(true);
+      setUploadProgress(0);
+
+      const uploadRes = await uploadApi.uploadFile(file, {
+        section: 'landmarks',
+        slug: targetSlug,
+        subSection: 'overlays',
+        onProgress: (pct) => setUploadProgress(pct),
+      });
+
+      setAssetUrl(uploadRes.secureUrl || uploadRes.url);
+      setCloudinaryPublicId(uploadRes.publicId);
+      showSuccess('Uploaded to Cloudinary', `Stored in ${uploadRes.folder}`);
+    } catch (err: unknown) {
+      console.warn('Upload notice:', err);
+      const axiosErr = err as { response?: { data?: { message?: string } }; message?: string };
+      const msg = axiosErr?.response?.data?.message || axiosErr.message || 'File selected locally.';
+      showInfo('Upload Status', msg);
+    } finally {
+      setIsUploadingAsset(false);
+      setUploadProgress(null);
+    }
+  };
+
+  const handleRemoveFile = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setAssetFileName('');
+    setAssetUrl('');
+    setCloudinaryPublicId('');
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
+  };
+
   const handleResetForm = () => {
     setName('');
     setCode('');
@@ -117,6 +177,12 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
     setWidthMeters('');
     setHeightMeters('');
     setAssetFileName('');
+    setAssetUrl('');
+    setCloudinaryPublicId('');
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
     setCategory('Monument');
     setColorHex('#DD1110');
     setIconSymbol('🏛️');
@@ -163,7 +229,8 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
       code: finalCode,
       name: name.trim(),
       description: description.trim(),
-      assetPath: assetFileName || 'assets/floor_map/floor_level_1.svg',
+      assetPath: assetUrl || assetFileName || 'assets/floor_map/floor_level_1.svg',
+      cloudinaryPublicId: cloudinaryPublicId || undefined,
       center: {
         latitude: latNum,
         longitude: lngNum,
@@ -356,33 +423,101 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                 </div>
 
                 <div>
-                  <label className="border-2 border-dashed border-border hover:border-primary/60 rounded-xl p-5 text-center bg-muted/20 transition-colors flex flex-col items-center justify-center cursor-pointer">
-                    <UploadCloud className="size-7 mb-1.5 text-muted-foreground" />
-                    <p className="text-xs text-foreground font-medium">
-                      {assetFileName ? (
-                        <span className="text-primary font-mono">{assetFileName}</span>
-                      ) : (
-                        <span>
-                          Drop SVG or Image file here, or{' '}
-                          <span className="text-primary underline">browse</span>
-                        </span>
-                      )}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground mt-1">
-                      Supports SVG floor plan or PNG/JPG overlay
-                    </p>
-                    <input
-                      type="file"
-                      accept=".svg,.png,.jpg,.jpeg"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          setAssetFileName(file.name);
-                        }
+                  {isUploadingAsset ? (
+                    <div className="border-2 border-dashed border-primary/50 rounded-xl p-5 text-center bg-primary/5 flex flex-col items-center justify-center space-y-2">
+                      <Loader2 className="size-6 text-primary animate-spin" />
+                      <p className="text-xs font-medium text-foreground">
+                        Uploading to Cloudinary...{' '}
+                        {uploadProgress !== null ? `${uploadProgress}%` : ''}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground font-mono truncate max-w-xs">
+                        colosseum/landmarks/{code.trim() || 'monument'}/overlays
+                      </p>
+                    </div>
+                  ) : assetFileName ? (
+                    <div className="border border-border rounded-xl p-3 bg-card flex items-center justify-between gap-3 shadow-xs">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {previewUrl ? (
+                          <img
+                            src={previewUrl}
+                            alt="Preview"
+                            className="size-12 rounded-lg object-cover border border-border bg-muted/40 shrink-0"
+                          />
+                        ) : (
+                          <div className="size-12 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                            <ImageIcon className="size-6 text-primary" />
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-foreground truncate">
+                            {assetFileName}
+                          </p>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            {assetUrl ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium font-mono">
+                                <CheckCircle2 className="size-3" /> Cloudinary CDN
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-muted-foreground font-mono">
+                                Selected locally
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        <label className="text-xs font-medium text-primary hover:underline cursor-pointer px-2 py-1">
+                          Change
+                          <input
+                            type="file"
+                            accept=".svg,.png,.jpg,.jpeg,.webp"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleFileUpload(file);
+                            }}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={handleRemoveFile}
+                          className="p-1 text-muted-foreground hover:text-destructive rounded-md transition-colors cursor-pointer"
+                          title="Remove file"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <label
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const file = e.dataTransfer.files?.[0];
+                        if (file) handleFileUpload(file);
                       }}
-                    />
-                  </label>
+                      className="border-2 border-dashed border-border hover:border-primary/60 rounded-xl p-5 text-center bg-muted/20 transition-colors flex flex-col items-center justify-center cursor-pointer"
+                    >
+                      <UploadCloud className="size-7 mb-1.5 text-muted-foreground" />
+                      <p className="text-xs text-foreground font-medium">
+                        Drop SVG or Image file here, or{' '}
+                        <span className="text-primary underline">browse</span>
+                      </p>
+                      <p className="text-[11px] text-muted-foreground mt-1">
+                        Supports SVG floor plan or PNG/JPG overlay (Uploaded to Cloudinary)
+                      </p>
+                      <input
+                        type="file"
+                        accept=".svg,.png,.jpg,.jpeg,.webp"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleFileUpload(file);
+                        }}
+                      />
+                    </label>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

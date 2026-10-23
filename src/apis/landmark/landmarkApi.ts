@@ -428,6 +428,7 @@ export interface CreateLandmarkInput {
   name: string;
   description?: string;
   assetPath: string;
+  cloudinaryPublicId?: string;
   center: {
     latitude: number;
     longitude: number;
