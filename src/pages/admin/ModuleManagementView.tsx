@@ -437,29 +437,35 @@ export const ModuleManagementView: React.FC = () => {
       {/* Header & Breadcrumb */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
         <div className="space-y-1">
-          <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-secondary text-secondary-foreground text-xs font-semibold">
-            <IconComponent className="size-3.5 text-primary" />
-            <span>Admin Console</span>
-            <span>/</span>
-            <span>{moduleDef.category}</span>
-          </div>
+          {moduleKey !== 'landmarks' && (
+            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-secondary text-secondary-foreground text-xs font-semibold">
+              <IconComponent className="size-3.5 text-primary" />
+              <span>Admin Console</span>
+              <span>/</span>
+              <span>{moduleDef.category}</span>
+            </div>
+          )}
           <h1 className="text-2xl font-black text-foreground tracking-tight">{moduleDef.name}</h1>
-          <p className="text-xs text-muted-foreground">{moduleDef.description}</p>
+          {moduleKey !== 'landmarks' && (
+            <p className="text-xs text-muted-foreground">{moduleDef.description}</p>
+          )}
         </div>
 
         {/* Action Controls */}
         <div className="flex items-center gap-2.5">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              showInfo('Export Triggered', `Exporting current ${moduleDef.name} catalog...`)
-            }
-            className="gap-2 cursor-pointer border-border hover:bg-muted"
-          >
-            <Download className="size-3.5 text-muted-foreground" />
-            <span>Export</span>
-          </Button>
+          {moduleKey !== 'landmarks' && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                showInfo('Export Triggered', `Exporting current ${moduleDef.name} catalog...`)
+              }
+              className="gap-2 cursor-pointer border-border hover:bg-muted"
+            >
+              <Download className="size-3.5 text-muted-foreground" />
+              <span>Export</span>
+            </Button>
+          )}
 
           <Button
             size="sm"
@@ -481,71 +487,73 @@ export const ModuleManagementView: React.FC = () => {
       </div>
 
       {/* Permissions Transparency Banner */}
-      <div className="bg-card border border-border rounded-xl p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="flex size-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-            <ShieldCheck className="size-4" />
+      {moduleKey !== 'landmarks' && (
+        <div className="bg-card border border-border rounded-xl p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="flex size-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+              <ShieldCheck className="size-4" />
+            </div>
+            <div>
+              <span className="text-xs font-bold text-foreground">
+                Your Active Access Privileges ({user?.userRole || user?.role || 'SUPER_ADMIN'})
+              </span>
+              <p className="text-[11px] text-muted-foreground">
+                Role permissions strictly enforced according to system RBAC policy.
+              </p>
+            </div>
           </div>
-          <div>
-            <span className="text-xs font-bold text-foreground">
-              Your Active Access Privileges ({user?.userRole || user?.role || 'SUPER_ADMIN'})
+
+          {/* Granular CRUD Indicator Badges */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span
+              className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 ${
+                canCreate
+                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                  : 'bg-muted text-muted-foreground'
+              }`}
+            >
+              {canCreate ? <CheckCircle2 className="size-2.5" /> : <XCircle className="size-2.5" />}
+              CREATE
             </span>
-            <p className="text-[11px] text-muted-foreground">
-              Role permissions strictly enforced according to system RBAC policy.
-            </p>
+
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+              <CheckCircle2 className="size-2.5" />
+              READ
+            </span>
+
+            <span
+              className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 ${
+                canUpdate
+                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                  : 'bg-muted text-muted-foreground'
+              }`}
+            >
+              {canUpdate ? <CheckCircle2 className="size-2.5" /> : <XCircle className="size-2.5" />}
+              UPDATE
+            </span>
+
+            <span
+              className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 ${
+                canDelete
+                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                  : 'bg-muted text-muted-foreground'
+              }`}
+            >
+              {canDelete ? <CheckCircle2 className="size-2.5" /> : <XCircle className="size-2.5" />}
+              DELETE
+            </span>
+
+            <Button
+              asChild
+              variant="ghost"
+              size="sm"
+              className="h-6 text-[10px] font-semibold text-primary underline px-1.5"
+            >
+              <Link to="/admin/dashboard/rbac">Modify in RBAC</Link>
+            </Button>
           </div>
         </div>
-
-        {/* Granular CRUD Indicator Badges */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span
-            className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 ${
-              canCreate
-                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                : 'bg-muted text-muted-foreground'
-            }`}
-          >
-            {canCreate ? <CheckCircle2 className="size-2.5" /> : <XCircle className="size-2.5" />}
-            CREATE
-          </span>
-
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-            <CheckCircle2 className="size-2.5" />
-            READ
-          </span>
-
-          <span
-            className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 ${
-              canUpdate
-                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                : 'bg-muted text-muted-foreground'
-            }`}
-          >
-            {canUpdate ? <CheckCircle2 className="size-2.5" /> : <XCircle className="size-2.5" />}
-            UPDATE
-          </span>
-
-          <span
-            className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 ${
-              canDelete
-                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                : 'bg-muted text-muted-foreground'
-            }`}
-          >
-            {canDelete ? <CheckCircle2 className="size-2.5" /> : <XCircle className="size-2.5" />}
-            DELETE
-          </span>
-
-          <Button
-            asChild
-            variant="ghost"
-            size="sm"
-            className="h-6 text-[10px] font-semibold text-primary underline px-1.5"
-          >
-            <Link to="/admin/dashboard/rbac">Modify in RBAC</Link>
-          </Button>
-        </div>
-      </div>
+      )}
 
       {/* Module Data Table */}
       <div className="bg-card border border-border rounded-2xl shadow-xs overflow-hidden">
@@ -554,9 +562,11 @@ export const ModuleManagementView: React.FC = () => {
             <h2 className="text-sm font-bold text-foreground">
               Active {moduleDef.name} Catalog Entries
             </h2>
-            <p className="text-xs text-muted-foreground">
-              Manage live records, coordinate calibrations, and sync manifests.
-            </p>
+            {moduleKey !== 'landmarks' && (
+              <p className="text-xs text-muted-foreground">
+                Manage live records, coordinate calibrations, and sync manifests.
+              </p>
+            )}
           </div>
 
           <div className="flex items-center gap-3">
@@ -572,11 +582,11 @@ export const ModuleManagementView: React.FC = () => {
                 />
               </div>
             )}
-            <span className="text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary font-bold whitespace-nowrap">
-              {moduleKey === 'landmarks'
-                ? `${filteredLandmarks.length} Registered`
-                : `${moduleDef.sampleData.length} Registered`}
-            </span>
+            {moduleKey !== 'landmarks' && (
+              <span className="text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary font-bold whitespace-nowrap">
+                {`${moduleDef.sampleData.length} Registered`}
+              </span>
+            )}
           </div>
         </div>
 
@@ -607,9 +617,6 @@ export const ModuleManagementView: React.FC = () => {
                     <div className="space-y-1.5 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-bold text-sm text-foreground">{lm.name}</span>
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground font-mono">
-                          {lm.code}
-                        </span>
                         <span
                           className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
                             lm.isPublished
@@ -632,12 +639,6 @@ export const ModuleManagementView: React.FC = () => {
                           <Maximize2 className="size-3 text-primary shrink-0" />
                           {lm.dimensions?.widthMeters ?? 0}m × {lm.dimensions?.heightMeters ?? 0}m
                         </span>
-                        {lm.description && (
-                          <>
-                            <span>•</span>
-                            <span className="truncate max-w-xs">{lm.description}</span>
-                          </>
-                        )}
                       </div>
                     </div>
 
