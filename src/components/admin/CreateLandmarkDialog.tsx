@@ -180,21 +180,21 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl p-0 overflow-hidden bg-card border-border shadow-2xl max-h-[92vh] flex flex-col">
+      <DialogContent className="w-[96vw] max-w-[96vw] sm:max-w-2xl md:max-w-4xl lg:max-w-5xl p-0 overflow-hidden bg-card border-border shadow-2xl max-h-[92vh] flex flex-col">
         {/* Header */}
-        <div className="px-6 py-4.5 border-b border-border flex items-center justify-between bg-muted/40">
-          <div className="flex items-center gap-3">
-            <div className="size-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary text-xl font-bold">
+        <div className="px-4 sm:px-6 py-4 border-b border-border flex items-center justify-between bg-muted/40 pr-12 sm:pr-6">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="size-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary text-xl font-bold shrink-0">
               <LandmarkIcon className="size-5" />
             </div>
-            <DialogHeader className="space-y-0.5">
-              <DialogTitle className="text-lg font-bold tracking-tight text-foreground flex items-center gap-2">
-                Add New Landmark or Monument
-                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+            <DialogHeader className="space-y-0.5 min-w-0">
+              <DialogTitle className="text-base sm:text-lg font-bold tracking-tight text-foreground flex items-center gap-2 flex-wrap">
+                <span>Add New Landmark or Monument</span>
+                <span className="text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
                   New Record
                 </span>
               </DialogTitle>
-              <DialogDescription className="text-xs text-muted-foreground">
+              <DialogDescription className="text-xs text-muted-foreground line-clamp-1 sm:line-clamp-none">
                 Define geographic bounds, vector map dimensions, and mobile guide marker
                 calibrations.
               </DialogDescription>
@@ -203,7 +203,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
         </div>
 
         {/* Modal Scrollable Body */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Left 7 Columns: Form Inputs */}
             <div className="lg:col-span-7 space-y-5">
@@ -301,7 +301,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-foreground mb-1">
                       Latitude <span className="text-destructive">*</span>
@@ -363,7 +363,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-foreground mb-1">
                       Width (Meters) <span className="text-destructive">*</span>
@@ -430,13 +430,13 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                         type="color"
                         value={colorHex}
                         onChange={(e) => setColorHex(e.target.value)}
-                        className="size-8 rounded-md border border-input cursor-pointer bg-transparent"
+                        className="size-8 rounded-md border border-input cursor-pointer bg-transparent shrink-0"
                       />
                       <input
                         type="text"
                         value={colorHex}
                         onChange={(e) => setColorHex(e.target.value)}
-                        className="w-20 px-2 py-1.5 bg-background border border-input rounded-md text-xs font-mono text-foreground"
+                        className="w-full px-2 py-1.5 bg-background border border-input rounded-md text-xs font-mono text-foreground"
                       />
                     </div>
                   </div>
@@ -460,7 +460,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                 </div>
 
                 {/* Color Swatches */}
-                <div className="flex items-center gap-1.5 pt-1">
+                <div className="flex items-center gap-1.5 pt-1 flex-wrap">
                   <span className="text-[11px] text-muted-foreground mr-1">Palettes:</span>
                   {PRESET_COLORS.map((swatch) => (
                     <button
@@ -510,7 +510,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                     <h3 className="text-sm font-bold text-foreground truncate">
                       {name || 'Untitled Monument'}
                     </h3>
-                    <p className="text-xs text-muted-foreground">{category}</p>
+                    <p className="text-xs text-muted-foreground truncate">{category}</p>
                     <div className="flex items-center gap-1 mt-1 text-[11px] font-mono text-muted-foreground truncate">
                       <MapPin className="size-3 text-primary shrink-0" />
                       <span>
@@ -520,12 +520,12 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 text-xs bg-background p-2.5 rounded-lg border border-border">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs bg-background p-2.5 rounded-lg border border-border">
                   <div>
                     <span className="text-muted-foreground block text-[10px] uppercase font-semibold">
                       Overlay Dimensions
                     </span>
-                    <span className="font-mono text-foreground font-medium">
+                    <span className="font-mono text-foreground font-medium truncate block">
                       {widthMeters}m × {heightMeters}m
                     </span>
                   </div>
@@ -677,14 +677,14 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
           </div>
 
           {/* Modal Footer */}
-          <div className="pt-4 border-t border-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="pt-4 border-t border-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <input
                 id={publishId}
                 type="checkbox"
                 checked={isPublished}
                 onChange={(e) => setIsPublished(e.target.checked)}
-                className="size-4 rounded accent-primary cursor-pointer"
+                className="size-4 rounded accent-primary cursor-pointer shrink-0"
               />
               <label
                 htmlFor={publishId}
@@ -694,7 +694,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
               </label>
             </div>
 
-            <div className="flex items-center gap-2.5 self-end sm:self-auto">
+            <div className="flex items-center justify-end gap-2.5">
               <Button
                 type="button"
                 variant="outline"

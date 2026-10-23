@@ -32,6 +32,7 @@ import {
   ShieldCheck,
   Ticket,
   Users,
+  UserCog,
   Lock,
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
@@ -132,8 +133,14 @@ const ALL_NAV_MODULES: NavModuleItem[] = [
   {
     title: 'Staff Accounts',
     moduleName: 'Staff & User Accounts',
-    url: '/admin/dashboard/users',
+    url: '/admin/dashboard/staff-accounts',
     icon: Users,
+  },
+  {
+    title: 'Users',
+    moduleName: 'Staff & User Accounts',
+    url: '/admin/dashboard/users',
+    icon: UserCog,
   },
 ];
 

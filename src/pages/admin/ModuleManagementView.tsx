@@ -283,6 +283,28 @@ const MODULE_DEFINITIONS: Record<
       },
     ],
   },
+  'staff-accounts': {
+    name: 'Staff & User Accounts',
+    description:
+      'Administrative console credentials, staff accounts, authentication logs, and user profile management',
+    category: 'Security & Access',
+    singular: 'Staff Account',
+    icon: Users,
+    sampleData: [
+      {
+        id: 'usr_admin',
+        title: 'Primary Administrator',
+        subtitle: 'Email: admin@colosseumtour.it • Role: SUPER_ADMIN',
+        tag: 'Root Access',
+      },
+      {
+        id: 'usr_mod',
+        title: 'Content Moderator',
+        subtitle: 'Email: moderator@colosseumtour.it • Role: MODERATOR',
+        tag: 'Content Staff',
+      },
+    ],
+  },
   users: {
     name: 'Staff & User Accounts',
     description:
