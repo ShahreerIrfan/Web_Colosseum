@@ -28,10 +28,7 @@ import {
   Navigation,
   RefreshCw,
   Route,
-  Settings,
   ShieldCheck,
-  Ticket,
-  Users,
   UserCog,
   Lock,
 } from 'lucide-react';
@@ -119,26 +116,8 @@ const ALL_NAV_MODULES: NavModuleItem[] = [
     icon: Database,
   },
   {
-    title: 'Tickets & Entry',
-    moduleName: 'Access & Tickets',
-    url: '/admin/dashboard/tickets',
-    icon: Ticket,
-  },
-  {
-    title: 'Park Config',
-    moduleName: 'Park Configuration',
-    url: '/admin/dashboard/park-config',
-    icon: Settings,
-  },
-  {
-    title: 'Staff Accounts',
-    moduleName: 'Staff & User Accounts',
-    url: '/admin/dashboard/staff-accounts',
-    icon: Users,
-  },
-  {
     title: 'Users',
-    moduleName: 'Staff & User Accounts',
+    moduleName: 'Role-Based Access Control',
     url: '/admin/dashboard/users',
     icon: UserCog,
   },

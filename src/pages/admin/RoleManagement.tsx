@@ -166,35 +166,7 @@ const MODULES: ModuleDefinition[] = [
     scope: ['Client'],
   },
 
-  // 5. Visitor Operations
-  {
-    id: 'tickets',
-    name: 'Access & Tickets',
-    description:
-      'Tier access validation (General, Arena Priority, Full Access), QR voucher scans, and entry guard',
-    category: 'Visitor Operations',
-    scope: ['Backend', 'Web'],
-  },
-
-  // 6. Park Administration
-  {
-    id: 'parkConfig',
-    name: 'Park Configuration',
-    description:
-      'Global park operating hours, proximity geofence radius settings, and visitor capacity limits',
-    category: 'Park Administration',
-    scope: ['Backend', 'Web', 'Client'],
-  },
-
-  // 7. Security & Administration
-  {
-    id: 'users',
-    name: 'Staff & User Accounts',
-    description:
-      'Administrative console credentials, staff accounts, authentication logs, and user profile management',
-    category: 'Security & Access',
-    scope: ['Backend', 'Web'],
-  },
+  // Security & Administration
   {
     id: 'rbac',
     name: 'Role-Based Access Control',

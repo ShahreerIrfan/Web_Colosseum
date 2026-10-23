@@ -55,7 +55,7 @@ export const router = createBrowserRouter([
       {
         path: 'users',
         element: (
-          <RbacGuard moduleName="Staff & User Accounts">
+          <RbacGuard moduleName="Role-Based Access Control">
             <UserManagement />
           </RbacGuard>
         ),
