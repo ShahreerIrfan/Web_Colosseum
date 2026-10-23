@@ -1,4 +1,4 @@
-import React, { useState, useId } from 'react';
+import React, { useState, useId, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -10,6 +10,8 @@ import { Button } from '@/components/ui/button';
 import { landmarkApi, type CreateLandmarkInput } from '@/apis/landmark/landmarkApi';
 import type { Landmark } from '@/types/api/landmarkTypes';
 import useToast from '@/hooks/component/useToast';
+import { LocationPickerMap } from './LocationPickerMap';
+import { COLOSSEUM_DEFAULT_COORDS } from './mapConstants';
 import {
   Landmark as LandmarkIcon,
   MapPin,
@@ -46,12 +48,16 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
   const { showSuccess, showError } = useToast();
   const publishId = useId();
 
-  // Form State - Clean defaults for any new independent monument
+  // Form State - Defaulted to Colosseum coordinates as the origin pin
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [description, setDescription] = useState('');
-  const [latitude, setLatitude] = useState<number | string>('');
-  const [longitude, setLongitude] = useState<number | string>('');
+  const [latitude, setLatitude] = useState<number | string>(
+    COLOSSEUM_DEFAULT_COORDS.lat.toFixed(6)
+  );
+  const [longitude, setLongitude] = useState<number | string>(
+    COLOSSEUM_DEFAULT_COORDS.lng.toFixed(6)
+  );
   const [widthMeters, setWidthMeters] = useState<number | string>('');
   const [heightMeters, setHeightMeters] = useState<number | string>('');
   const [assetFileName, setAssetFileName] = useState('');
@@ -59,6 +65,12 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
   const [colorHex, setColorHex] = useState('#DD1110');
   const [iconSymbol, setIconSymbol] = useState('🏛️');
   const [isPublished, setIsPublished] = useState(true);
+
+  // Sync map center dragging directly into text inputs
+  const handleMapLocationChange = useCallback((newLat: number, newLng: number) => {
+    setLatitude(newLat.toFixed(6));
+    setLongitude(newLng.toFixed(6));
+  }, []);
 
   // Advanced Calibration State
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -87,8 +99,8 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
     setName('');
     setCode('');
     setDescription('');
-    setLatitude('');
-    setLongitude('');
+    setLatitude(COLOSSEUM_DEFAULT_COORDS.lat.toFixed(6));
+    setLongitude(COLOSSEUM_DEFAULT_COORDS.lng.toFixed(6));
     setWidthMeters('');
     setHeightMeters('');
     setAssetFileName('');
@@ -255,10 +267,22 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
 
               {/* 02 Geographic Position */}
               <div className="space-y-3 pt-4 border-t border-border">
-                <div className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-wider">
-                  <MapPin className="size-3.5" />
-                  <span>02 Geographic Position</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-wider">
+                    <MapPin className="size-3.5" />
+                    <span>02 Geographic Position</span>
+                  </div>
+                  <span className="text-[11px] text-muted-foreground">
+                    Pan map to calibrate center pin
+                  </span>
                 </div>
+
+                {/* Map with Fixed Red Pointer in Center */}
+                <LocationPickerMap
+                  latitude={latitude}
+                  longitude={longitude}
+                  onChange={handleMapLocationChange}
+                />
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
@@ -269,7 +293,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                       type="number"
                       step="any"
                       required
-                      placeholder="e.g. 41.8928"
+                      placeholder="e.g. 41.8902"
                       value={latitude}
                       onChange={(e) => setLatitude(e.target.value)}
                       className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
@@ -283,7 +307,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                       type="number"
                       step="any"
                       required
-                      placeholder="e.g. 12.4851"
+                      placeholder="e.g. 12.4922"
                       value={longitude}
                       onChange={(e) => setLongitude(e.target.value)}
                       className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
