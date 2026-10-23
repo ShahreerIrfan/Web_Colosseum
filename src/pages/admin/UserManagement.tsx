@@ -367,7 +367,7 @@ export const UserManagement: React.FC = () => {
             placeholder="Search users by name, email, or role..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 pr-8 h-9 text-xs bg-muted/30 border-border"
+            className="pl-9 pr-8 h-9 text-xs bg-muted/30 border-border focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-border focus:outline-none"
           />
           {searchQuery && (
             <button
@@ -543,7 +543,8 @@ export const UserManagement: React.FC = () => {
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent
           aria-describedby={undefined}
-          className="sm:max-w-xl bg-card border-border shadow-2xl p-6 overflow-hidden"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          className="sm:max-w-xl bg-card border-border shadow-2xl p-6 overflow-hidden focus:outline-none focus-visible:ring-0"
         >
           <DialogHeader className="pb-3 border-b border-border">
             <div className="flex items-center gap-3">
@@ -574,14 +575,14 @@ export const UserManagement: React.FC = () => {
                 <Input
                   readOnly
                   value={selectedUser?.id || ''}
-                  className="font-mono text-xs bg-muted/40 border-border select-all"
+                  className="font-mono text-xs bg-muted/40 border-border select-all focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-border focus:outline-none"
                 />
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => selectedUser?.id && handleCopyId(selectedUser.id)}
-                  className="h-9 px-3 gap-1.5 cursor-pointer border-border hover:bg-muted shrink-0 text-xs font-semibold"
+                  className="h-9 px-3 gap-1.5 cursor-pointer border-border hover:bg-muted shrink-0 text-xs font-semibold focus-visible:ring-0 focus-visible:outline-none"
                   title="Copy User ID"
                 >
                   <Copy className="size-3.5 text-muted-foreground" />
@@ -601,7 +602,7 @@ export const UserManagement: React.FC = () => {
                   value={modalForm.name}
                   onChange={(e) => setModalForm((prev) => ({ ...prev, name: e.target.value }))}
                   placeholder="e.g. Marcus Aurelius"
-                  className="text-xs bg-muted/20 border-border"
+                  className="text-xs bg-muted/20 border-border focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-border focus:outline-none"
                 />
               </div>
 
@@ -615,7 +616,7 @@ export const UserManagement: React.FC = () => {
                   value={modalForm.email}
                   onChange={(e) => setModalForm((prev) => ({ ...prev, email: e.target.value }))}
                   placeholder="e.g. user@roma.it"
-                  className="text-xs bg-muted/20 border-border font-mono"
+                  className="text-xs bg-muted/20 border-border font-mono focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-border focus:outline-none"
                 />
               </div>
             </div>
@@ -632,7 +633,7 @@ export const UserManagement: React.FC = () => {
                     <Button
                       type="button"
                       variant="outline"
-                      className="w-full h-9 justify-between bg-muted/20 hover:bg-muted/40 border-border px-3 text-xs font-semibold cursor-pointer text-foreground"
+                      className="w-full h-9 justify-between bg-muted/20 hover:bg-muted/40 border-border px-3 text-xs font-semibold cursor-pointer text-foreground focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-border focus:outline-none"
                     >
                       <div className="flex items-center gap-2 truncate">
                         {(() => {
@@ -701,7 +702,7 @@ export const UserManagement: React.FC = () => {
                     <Button
                       type="button"
                       variant="outline"
-                      className="w-full h-9 justify-between bg-muted/20 hover:bg-muted/40 border-border px-3 text-xs font-semibold cursor-pointer text-foreground"
+                      className="w-full h-9 justify-between bg-muted/20 hover:bg-muted/40 border-border px-3 text-xs font-semibold cursor-pointer text-foreground focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-border focus:outline-none"
                     >
                       <div className="flex items-center gap-2">
                         <span
@@ -778,7 +779,7 @@ export const UserManagement: React.FC = () => {
               size="sm"
               onClick={() => setIsModalOpen(false)}
               disabled={isSavingModal}
-              className="cursor-pointer border-border hover:bg-muted"
+              className="cursor-pointer border-border hover:bg-muted focus-visible:ring-0 focus-visible:outline-none"
             >
               Cancel
             </Button>
@@ -787,7 +788,7 @@ export const UserManagement: React.FC = () => {
               size="sm"
               onClick={handleSaveModalUser}
               disabled={isSavingModal}
-              className="gap-2 bg-primary text-primary-foreground font-semibold cursor-pointer shadow-xs hover:opacity-90"
+              className="gap-2 bg-primary text-primary-foreground font-semibold cursor-pointer shadow-xs hover:opacity-90 focus-visible:ring-0 focus-visible:outline-none"
             >
               {isSavingModal ? (
                 <>
