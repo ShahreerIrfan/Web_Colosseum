@@ -12,7 +12,6 @@ import type { Landmark } from '@/types/api/landmarkTypes';
 import useToast from '@/hooks/component/useToast';
 import {
   Landmark as LandmarkIcon,
-  Sparkles,
   MapPin,
   Maximize2,
   Palette,
@@ -20,7 +19,6 @@ import {
   ChevronUp,
   Loader2,
   UploadCloud,
-  CheckCircle2,
   Sliders,
   Compass,
 } from 'lucide-react';
@@ -188,15 +186,11 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
               <LandmarkIcon className="size-5" />
             </div>
             <DialogHeader className="space-y-0.5 min-w-0">
-              <DialogTitle className="text-base sm:text-lg font-bold tracking-tight text-foreground flex items-center gap-2 flex-wrap">
-                <span>Add New Landmark or Monument</span>
-                <span className="text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                  New Record
-                </span>
+              <DialogTitle className="text-base sm:text-lg font-bold tracking-tight text-foreground">
+                Add New Landmark or Monument
               </DialogTitle>
-              <DialogDescription className="text-xs text-muted-foreground line-clamp-1 sm:line-clamp-none">
-                Define geographic bounds, vector map dimensions, and mobile guide marker
-                calibrations.
+              <DialogDescription className="sr-only">
+                Create a new landmark or monument record
               </DialogDescription>
             </DialogHeader>
           </div>
@@ -212,9 +206,6 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                 <div className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-wider">
                   <span>01</span>
                   <span>Basic Identity</span>
-                  <span className="ml-auto text-[11px] text-amber-500 font-normal">
-                    ● Manual Input
-                  </span>
                 </div>
 
                 <div>
@@ -232,27 +223,17 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-medium text-foreground">
-                      System Code (Slug) <span className="text-destructive">*</span>
-                    </label>
-                    <span className="text-[11px] text-emerald-500 dark:text-emerald-400 flex items-center gap-1 font-medium">
-                      <Sparkles className="size-3" /> Auto-slugified
-                    </span>
-                  </div>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      required
-                      value={code}
-                      onChange={(e) => setCode(e.target.value)}
-                      placeholder="e.g. arch_of_constantine"
-                      className="w-full px-3 py-2 bg-muted/40 border border-input rounded-lg text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    />
-                    <span className="absolute right-3 top-2 text-[11px] text-muted-foreground font-mono">
-                      unique_id
-                    </span>
-                  </div>
+                  <label className="block text-xs font-medium text-foreground mb-1">
+                    System Code (Slug) <span className="text-destructive">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    placeholder="e.g. arch_of_constantine"
+                    className="w-full px-3 py-2 bg-muted/40 border border-input rounded-lg text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                  />
                 </div>
 
                 <div>
@@ -274,9 +255,6 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                 <div className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-wider">
                   <MapPin className="size-3.5" />
                   <span>02 Geographic Position</span>
-                  <span className="ml-auto text-[11px] text-emerald-500 font-normal">
-                    GeoJSON Point
-                  </span>
                 </div>
 
                 {/* Preset Fast Picker */}
@@ -336,15 +314,9 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                 <div className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-wider">
                   <Maximize2 className="size-3.5" />
                   <span>03 Map Overlay & Dimensions</span>
-                  <span className="ml-auto text-[11px] text-amber-500 font-normal">
-                    ● Manual Input
-                  </span>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-foreground mb-1">
-                    Vector Floor Map / SVG Asset <span className="text-destructive">*</span>
-                  </label>
                   <div className="border-2 border-dashed border-border hover:border-primary/60 rounded-xl p-3.5 text-center bg-muted/20 transition-colors">
                     <UploadCloud className="size-6 mx-auto mb-1 text-muted-foreground" />
                     <p className="text-xs text-foreground font-medium mb-2">
@@ -538,46 +510,6 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                     </span>
                   </div>
                 </div>
-              </div>
-
-              {/* Automatic Backend Fillup Box */}
-              <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 space-y-2">
-                <div className="flex items-center gap-2 text-xs font-bold text-primary">
-                  <CheckCircle2 className="size-4" />
-                  <span>Automatically Handled by Backend</span>
-                </div>
-                <ul className="text-xs space-y-1.5 text-foreground/80">
-                  <li className="flex items-center justify-between">
-                    <span className="text-muted-foreground">GeoJSON Structure:</span>
-                    <span className="font-mono text-primary text-[11px]">
-                      location: &#123; type: 'Point' &#125;
-                    </span>
-                  </li>
-                  <li className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Spatial Indexing:</span>
-                    <span className="font-mono text-emerald-500 text-[11px]">
-                      2dsphere Geospatial
-                    </span>
-                  </li>
-                  <li className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Default Pivot Anchor:</span>
-                    <span className="font-mono text-primary text-[11px]">
-                      ({anchorX}, {anchorY})
-                    </span>
-                  </li>
-                  <li className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Display Layer:</span>
-                    <span className="font-mono text-primary text-[11px]">
-                      zIndex: {zIndex} (Zoom {minZoom}-{maxZoom})
-                    </span>
-                  </li>
-                  <li className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Audit Tracking:</span>
-                    <span className="font-mono text-emerald-500 text-[11px]">
-                      _id, createdAt, updatedAt
-                    </span>
-                  </li>
-                </ul>
               </div>
 
               {/* Collapsible Advanced Calibration */}
