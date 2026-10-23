@@ -21,6 +21,7 @@ import {
   UploadCloud,
   Sliders,
   Compass,
+  Layers,
 } from 'lucide-react';
 
 interface CreateLandmarkDialogProps {
@@ -464,75 +465,116 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                 </button>
 
                 {showAdvanced && (
-                  <div className="p-3.5 space-y-3 border-t border-border text-xs bg-background/50">
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground flex items-center gap-1.5">
-                        <Compass className="size-3" /> Rotation Angle:
-                      </span>
-                      <div className="flex items-center gap-1.5">
-                        <input
-                          type="number"
-                          value={rotationDegrees}
-                          onChange={(e) => setRotationDegrees(Number(e.target.value))}
-                          step="0.5"
-                          className="w-16 px-1.5 py-1 bg-background border border-border rounded text-right font-mono text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                        />
-                        <span className="text-muted-foreground">deg</span>
+                  <div className="p-4 space-y-4 border-t border-border bg-background/50">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Rotation Angle */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                          <Compass className="size-3.5 text-primary" />
+                          <span>Rotation Angle</span>
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={rotationDegrees}
+                            onChange={(e) => setRotationDegrees(Number(e.target.value))}
+                            step="0.5"
+                            className="w-full h-9 pl-3 pr-12 bg-background border border-border rounded-lg text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                          />
+                          <span className="absolute right-3 top-2 text-xs text-muted-foreground font-mono select-none">
+                            deg
+                          </span>
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Anchor (X, Y):</span>
-                      <div className="flex items-center gap-1.5">
+                      {/* Stacking Z-Index */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                          <Layers className="size-3.5 text-primary" />
+                          <span>Stacking Z-Index</span>
+                        </label>
                         <input
                           type="number"
-                          value={anchorX}
-                          onChange={(e) => setAnchorX(Number(e.target.value))}
-                          step="0.1"
-                          min="0"
-                          max="1"
-                          className="w-12 px-1.5 py-1 bg-background border border-border rounded text-center font-mono text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                        />
-                        <input
-                          type="number"
-                          value={anchorY}
-                          onChange={(e) => setAnchorY(Number(e.target.value))}
-                          step="0.1"
-                          min="0"
-                          max="1"
-                          className="w-12 px-1.5 py-1 bg-background border border-border rounded text-center font-mono text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+                          value={zIndex}
+                          onChange={(e) => setZIndex(Number(e.target.value))}
+                          className="w-full h-9 px-3 bg-background border border-border rounded-lg text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                         />
                       </div>
-                    </div>
 
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Z-Index Stacking:</span>
-                      <input
-                        type="number"
-                        value={zIndex}
-                        onChange={(e) => setZIndex(Number(e.target.value))}
-                        className="w-14 px-1.5 py-1 bg-background border border-border rounded text-center font-mono text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                      />
-                    </div>
+                      {/* Pivot Anchors (X, Y) */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-foreground flex items-center justify-between">
+                          <span>Anchor Pivot (X, Y)</span>
+                          <span className="text-[10px] text-muted-foreground font-normal">
+                            0.0 - 1.0
+                          </span>
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="relative">
+                            <input
+                              type="number"
+                              step="0.05"
+                              min="0"
+                              max="1"
+                              value={anchorX}
+                              onChange={(e) => setAnchorX(Number(e.target.value))}
+                              className="w-full h-9 pl-7 pr-2 bg-background border border-border rounded-lg text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                            />
+                            <span className="absolute left-2.5 top-2 text-xs font-semibold text-muted-foreground select-none">
+                              X:
+                            </span>
+                          </div>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              step="0.05"
+                              min="0"
+                              max="1"
+                              value={anchorY}
+                              onChange={(e) => setAnchorY(Number(e.target.value))}
+                              className="w-full h-9 pl-7 pr-2 bg-background border border-border rounded-lg text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                            />
+                            <span className="absolute left-2.5 top-2 text-xs font-semibold text-muted-foreground select-none">
+                              Y:
+                            </span>
+                          </div>
+                        </div>
+                      </div>
 
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Min / Max Zoom:</span>
-                      <div className="flex items-center gap-1.5">
-                        <input
-                          type="number"
-                          value={minZoom}
-                          onChange={(e) => setMinZoom(Number(e.target.value))}
-                          step="0.5"
-                          className="w-12 px-1.5 py-1 bg-background border border-border rounded text-center font-mono text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                        />
-                        <span>-</span>
-                        <input
-                          type="number"
-                          value={maxZoom}
-                          onChange={(e) => setMaxZoom(Number(e.target.value))}
-                          step="0.5"
-                          className="w-12 px-1.5 py-1 bg-background border border-border rounded text-center font-mono text-xs focus:outline-none focus:ring-1 focus:ring-primary"
-                        />
+                      {/* Zoom Visibility Range */}
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium text-foreground flex items-center justify-between">
+                          <span>Zoom Visibility Range</span>
+                          <span className="text-[10px] text-muted-foreground font-normal">
+                            Min - Max
+                          </span>
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="relative">
+                            <input
+                              type="number"
+                              step="0.5"
+                              value={minZoom}
+                              onChange={(e) => setMinZoom(Number(e.target.value))}
+                              className="w-full h-9 pl-9 pr-2 bg-background border border-border rounded-lg text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                            />
+                            <span className="absolute left-2.5 top-2 text-xs font-semibold text-muted-foreground select-none">
+                              Min:
+                            </span>
+                          </div>
+                          <div className="relative">
+                            <input
+                              type="number"
+                              step="0.5"
+                              value={maxZoom}
+                              onChange={(e) => setMaxZoom(Number(e.target.value))}
+                              className="w-full h-9 pl-9 pr-2 bg-background border border-border rounded-lg text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                            />
+                            <span className="absolute left-2.5 top-2 text-xs font-semibold text-muted-foreground select-none">
+                              Max:
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
