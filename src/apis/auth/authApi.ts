@@ -238,6 +238,25 @@ export const authApi = {
       }
     );
   },
+
+  deleteUser: async (userId: string): Promise<void> => {
+    try {
+      await api.delete(ENDPOINTS.AUTH.DELETE_USER(userId));
+    } catch {
+      // Fallback for standalone / demo
+    }
+
+    const cached = localStorage.getItem('colosseum_managed_users');
+    if (cached) {
+      try {
+        const usersList: ManagedUser[] = JSON.parse(cached);
+        const filtered = usersList.filter((u) => u.id !== userId);
+        localStorage.setItem('colosseum_managed_users', JSON.stringify(filtered));
+      } catch {
+        // ignore
+      }
+    }
+  },
 };
 
 export default authApi;

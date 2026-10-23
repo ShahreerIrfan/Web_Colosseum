@@ -21,15 +21,18 @@ import type { ManagedUser, UserPayload } from '@/types/api/authTypes';
 import { getUserPayload } from '@/utils/localStorageUtils';
 import { getFallbackRbacForRole } from '@/utils/rbacUtils';
 import {
+  AlertTriangle,
   Check,
   ChevronDown,
   Copy,
   Mail,
+  Pencil,
   RefreshCw,
   Search,
   Shield,
   ShieldAlert,
   ShieldCheck,
+  Trash2,
   User,
   Users,
   X,
@@ -111,6 +114,9 @@ export const UserManagement: React.FC = () => {
     assignedFloorIds: [],
   });
   const [isSavingModal, setIsSavingModal] = useState<boolean>(false);
+  const [userToDelete, setUserToDelete] = useState<ManagedUser | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState<boolean>(false);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
   const { showSuccess, showError, showInfo } = useToast();
 
@@ -250,6 +256,31 @@ export const UserManagement: React.FC = () => {
       showError('Save Failed', message);
     } finally {
       setIsSavingModal(false);
+    }
+  };
+
+  const handleOpenDeleteModal = (user: ManagedUser) => {
+    setUserToDelete(user);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!userToDelete) return;
+    try {
+      setIsDeleting(true);
+      await authApi.deleteUser(userToDelete.id);
+      setUsers((prev) => prev.filter((u) => u.id !== userToDelete.id));
+      showSuccess(
+        'User Deleted',
+        `Account for "${userToDelete.name}" has been permanently removed.`
+      );
+      setIsDeleteModalOpen(false);
+      setUserToDelete(null);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to delete user account.';
+      showError('Delete Failed', message);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -393,12 +424,15 @@ export const UserManagement: React.FC = () => {
                 <th scope="col" className="py-3.5 px-6 min-w-[220px]">
                   Assign Role
                 </th>
+                <th scope="col" className="py-3.5 px-6 text-right min-w-[110px]">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border text-sm">
               {loading ? (
                 <tr>
-                  <td colSpan={2} className="py-12 text-center text-muted-foreground">
+                  <td colSpan={3} className="py-12 text-center text-muted-foreground">
                     <div className="flex items-center justify-center gap-2">
                       <RefreshCw className="size-4 animate-spin text-primary" />
                       <span>Loading user accounts...</span>
@@ -407,7 +441,7 @@ export const UserManagement: React.FC = () => {
                 </tr>
               ) : filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={2} className="py-12 text-center text-muted-foreground">
+                  <td colSpan={3} className="py-12 text-center text-muted-foreground">
                     <p className="text-sm">No users found matching your search filter.</p>
                     <button
                       type="button"
@@ -529,6 +563,37 @@ export const UserManagement: React.FC = () => {
                             })}
                           </DropdownMenuContent>
                         </DropdownMenu>
+                      </td>
+
+                      {/* Actions: Edit & Delete */}
+                      <td className="py-4 px-6 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenUserModal(userItem)}
+                            className="size-8 p-0 rounded-lg border-border hover:bg-muted text-muted-foreground hover:text-foreground cursor-pointer focus-visible:ring-0 focus-visible:outline-none"
+                            title={`Edit ${userItem.name}`}
+                          >
+                            <Pencil className="size-3.5" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenDeleteModal(userItem)}
+                            disabled={Boolean(isCurrentLoggedUser)}
+                            className="size-8 p-0 rounded-lg border-destructive/20 hover:border-destructive/40 bg-destructive/5 hover:bg-destructive/15 text-destructive cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed focus-visible:ring-0 focus-visible:outline-none"
+                            title={
+                              isCurrentLoggedUser
+                                ? 'You cannot delete your own account'
+                                : `Delete ${userItem.name}`
+                            }
+                          >
+                            <Trash2 className="size-3.5" />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -799,6 +864,89 @@ export const UserManagement: React.FC = () => {
                 <>
                   <Check className="size-3.5" />
                   <span>Save Changes</span>
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Warning Modal */}
+      <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
+        <DialogContent
+          aria-describedby={undefined}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          className="sm:max-w-md bg-card border-border shadow-2xl p-6 overflow-hidden focus:outline-none focus-visible:ring-0"
+        >
+          <DialogHeader className="pb-3 border-b border-border">
+            <div className="flex items-center gap-3">
+              <div className="flex size-11 items-center justify-center rounded-full bg-destructive/10 text-destructive font-bold shrink-0 border border-destructive/20">
+                <AlertTriangle className="size-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <DialogTitle className="text-lg font-black text-foreground tracking-tight">
+                  Delete User Account
+                </DialogTitle>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="py-3 space-y-3">
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Are you sure you want to permanently delete{' '}
+              <span className="font-bold text-foreground">{userToDelete?.name}</span>? This action
+              cannot be undone and will completely remove this user account from the system.
+            </p>
+
+            {userToDelete && (
+              <div className="p-3 bg-muted/40 border border-border rounded-xl space-y-1.5 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">User ID:</span>
+                  <span className="font-mono font-semibold text-foreground">{userToDelete.id}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Email:</span>
+                  <span className="font-mono font-semibold text-foreground">
+                    {userToDelete.email}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Current Role:</span>
+                  <span className="font-semibold text-foreground">
+                    {getRoleDef(userToDelete.role as SystemRole).label}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="pt-3 border-t border-border flex items-center justify-end gap-2.5">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsDeleteModalOpen(false)}
+              disabled={isDeleting}
+              className="cursor-pointer border-border hover:bg-muted focus-visible:ring-0 focus-visible:outline-none"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+              className="gap-2 bg-destructive text-destructive-foreground hover:bg-destructive/90 font-semibold cursor-pointer shadow-xs focus-visible:ring-0 focus-visible:outline-none"
+            >
+              {isDeleting ? (
+                <>
+                  <RefreshCw className="size-3.5 animate-spin" />
+                  <span>Deleting...</span>
+                </>
+              ) : (
+                <>
+                  <Trash2 className="size-3.5" />
+                  <span>Delete User</span>
                 </>
               )}
             </Button>
