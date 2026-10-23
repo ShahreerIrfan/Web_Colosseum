@@ -58,6 +58,7 @@ export interface Landmark {
   romanEraName?: string;
   description: string;
   assetPath: string;
+  cloudinaryPublicId?: string;
   thumbnailUrl: string;
   location: GeoLocation;
   dimensions: {

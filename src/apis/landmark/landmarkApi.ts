@@ -457,6 +457,7 @@ interface BackendLandmarkRaw {
   romanEraName?: string;
   description?: string;
   assetPath?: string;
+  cloudinaryPublicId?: string;
   thumbnailUrl?: string;
   center?: { latitude: number; longitude: number };
   location?: { type: 'Point'; coordinates: [number, number] };
@@ -515,6 +516,7 @@ const mapRawLandmark = (raw: BackendLandmarkRaw): Landmark => {
     romanEraName: raw.romanEraName || match?.romanEraName || 'Monumentum Romanum',
     description: raw.description || match?.description || '',
     assetPath: raw.assetPath || match?.assetPath || '',
+    cloudinaryPublicId: raw.cloudinaryPublicId || match?.cloudinaryPublicId || '',
     thumbnailUrl:
       raw.thumbnailUrl ||
       match?.thumbnailUrl ||
