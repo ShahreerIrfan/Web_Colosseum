@@ -29,14 +29,6 @@ interface CreateLandmarkDialogProps {
   onCreated?: (landmark: Landmark) => void;
 }
 
-const PRESET_COORDINATES = [
-  { name: 'Colosseum', lat: 41.89021, lng: 12.492231, icon: '🏟️' },
-  { name: 'Arch of Constantine', lat: 41.889762, lng: 12.490667, icon: '🏛️' },
-  { name: 'Ludus Magnus', lat: 41.88973, lng: 12.49472, icon: '⚔️' },
-  { name: 'Temple of Venus & Rome', lat: 41.89088, lng: 12.49072, icon: '⛩️' },
-  { name: 'Roman Forum', lat: 41.8925, lng: 12.4853, icon: '🏛️' },
-];
-
 const PRESET_COLORS = [
   { label: 'Imperial Red', hex: '#DD1110' },
   { label: 'Ancient Travertine', hex: '#C68642' },
@@ -53,18 +45,16 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
   const { showSuccess, showError } = useToast();
   const publishId = useId();
 
-  // Form State
-  const [name, setName] = useState('Arch of Constantine');
-  const [code, setCode] = useState('arch_of_constantine');
-  const [description, setDescription] = useState(
-    "Triumphal arch celebrating Emperor Constantine I's victory at the Battle of Milvian Bridge."
-  );
-  const [latitude, setLatitude] = useState<number | string>(41.889762);
-  const [longitude, setLongitude] = useState<number | string>(12.490667);
-  const [widthMeters, setWidthMeters] = useState<number | string>(25.7);
-  const [heightMeters, setHeightMeters] = useState<number | string>(21.0);
-  const [assetFileName, setAssetFileName] = useState('assets/logo/Arch of Constantine.png');
-  const [category, setCategory] = useState('Triumphal Arch');
+  // Form State - Clean defaults for any new independent monument
+  const [name, setName] = useState('');
+  const [code, setCode] = useState('');
+  const [description, setDescription] = useState('');
+  const [latitude, setLatitude] = useState<number | string>('');
+  const [longitude, setLongitude] = useState<number | string>('');
+  const [widthMeters, setWidthMeters] = useState<number | string>('');
+  const [heightMeters, setHeightMeters] = useState<number | string>('');
+  const [assetFileName, setAssetFileName] = useState('');
+  const [category, setCategory] = useState('Monument');
   const [colorHex, setColorHex] = useState('#DD1110');
   const [iconSymbol, setIconSymbol] = useState('🏛️');
   const [isPublished, setIsPublished] = useState(true);
@@ -81,7 +71,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
   // Submission State
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Auto-slug generator
+  // Auto-slug generator from user input
   const handleNameChange = (val: string) => {
     setName(val);
     const generatedSlug = val
@@ -92,9 +82,20 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
     setCode(generatedSlug);
   };
 
-  const handleApplyPreset = (preset: (typeof PRESET_COORDINATES)[0]) => {
-    setLatitude(preset.lat);
-    setLongitude(preset.lng);
+  const handleResetForm = () => {
+    setName('');
+    setCode('');
+    setDescription('');
+    setLatitude('');
+    setLongitude('');
+    setWidthMeters('');
+    setHeightMeters('');
+    setAssetFileName('');
+    setCategory('Monument');
+    setColorHex('#DD1110');
+    setIconSymbol('🏛️');
+    setIsPublished(true);
+    setShowAdvanced(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -167,6 +168,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
       if (onCreated) {
         onCreated(created);
       }
+      handleResetForm();
       onOpenChange(false);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unable to register landmark.';
@@ -178,7 +180,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[96vw] max-w-[96vw] sm:max-w-2xl md:max-w-4xl lg:max-w-5xl p-0 overflow-hidden bg-card border-border shadow-2xl max-h-[92vh] flex flex-col">
+      <DialogContent className="w-[96vw] max-w-[96vw] sm:max-w-2xl md:max-w-3xl lg:max-w-4xl p-0 overflow-hidden bg-card border-border shadow-2xl max-h-[92vh] flex flex-col">
         {/* Header */}
         <div className="px-4 sm:px-6 py-4 border-b border-border flex items-center justify-between bg-muted/40 pr-12 sm:pr-6">
           <div className="flex items-center gap-3 min-w-0">
@@ -198,9 +200,9 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
 
         {/* Modal Scrollable Body */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Left 7 Columns: Form Inputs */}
-            <div className="lg:col-span-7 space-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Left Column: Identity & Coordinates */}
+            <div className="space-y-6">
               {/* 01 Basic Identity */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-wider">
@@ -215,7 +217,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Arch of Constantine"
+                    placeholder="e.g. Arch of Septimius Severus"
                     value={name}
                     onChange={(e) => handleNameChange(e.target.value)}
                     className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
@@ -231,7 +233,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                     required
                     value={code}
                     onChange={(e) => setCode(e.target.value)}
-                    placeholder="e.g. arch_of_constantine"
+                    placeholder="e.g. arch_of_septimius_severus"
                     className="w-full px-3 py-2 bg-muted/40 border border-border rounded-lg text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                   />
                 </div>
@@ -241,10 +243,10 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                     Historical Description
                   </label>
                   <textarea
-                    rows={2}
+                    rows={3}
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Brief background for tourist mobile audioguide..."
+                    placeholder="Enter historical background for visitors and audio guides..."
                     className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                   />
                 </div>
@@ -257,28 +259,6 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                   <span>02 Geographic Position</span>
                 </div>
 
-                {/* Preset Fast Picker */}
-                <div className="space-y-1.5">
-                  <span className="text-[11px] text-muted-foreground">Colosseum Park Presets:</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {PRESET_COORDINATES.map((preset) => (
-                      <button
-                        key={preset.name}
-                        type="button"
-                        onClick={() => handleApplyPreset(preset)}
-                        className={`text-[11px] px-2.5 py-1 rounded-md border transition-colors flex items-center gap-1.5 cursor-pointer ${
-                          latitude === preset.lat && longitude === preset.lng
-                            ? 'bg-primary/10 border-primary text-primary font-semibold'
-                            : 'bg-muted/40 border-border text-foreground hover:bg-muted'
-                        }`}
-                      >
-                        <span>{preset.icon}</span>
-                        <span>{preset.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-foreground mb-1">
@@ -288,6 +268,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                       type="number"
                       step="any"
                       required
+                      placeholder="e.g. 41.8928"
                       value={latitude}
                       onChange={(e) => setLatitude(e.target.value)}
                       className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
@@ -301,6 +282,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                       type="number"
                       step="any"
                       required
+                      placeholder="e.g. 12.4851"
                       value={longitude}
                       onChange={(e) => setLongitude(e.target.value)}
                       className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
@@ -308,31 +290,45 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                   </div>
                 </div>
               </div>
+            </div>
 
+            {/* Right Column: Asset, Dimensions, Styling & Calibration */}
+            <div className="space-y-6">
               {/* 03 Map Overlay & Dimensions */}
-              <div className="space-y-3 pt-4 border-t border-border">
+              <div className="space-y-3">
                 <div className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-wider">
                   <Maximize2 className="size-3.5" />
                   <span>03 Map Overlay & Dimensions</span>
                 </div>
 
                 <div>
-                  <div className="border-2 border-dashed border-border hover:border-primary/60 rounded-xl p-3.5 text-center bg-muted/20 transition-colors">
-                    <UploadCloud className="size-6 mx-auto mb-1 text-muted-foreground" />
-                    <p className="text-xs text-foreground font-medium mb-2">
-                      Drop SVG or Image file here, or specify asset path:
+                  <label className="border-2 border-dashed border-border hover:border-primary/60 rounded-xl p-5 text-center bg-muted/20 transition-colors flex flex-col items-center justify-center cursor-pointer">
+                    <UploadCloud className="size-7 mb-1.5 text-muted-foreground" />
+                    <p className="text-xs text-foreground font-medium">
+                      {assetFileName ? (
+                        <span className="text-primary font-mono">{assetFileName}</span>
+                      ) : (
+                        <span>
+                          Drop SVG or Image file here, or{' '}
+                          <span className="text-primary underline">browse</span>
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Supports SVG floor plan or PNG/JPG overlay
                     </p>
                     <input
-                      type="text"
-                      value={assetFileName}
-                      onChange={(e) => setAssetFileName(e.target.value)}
-                      placeholder="e.g. assets/floor_map/floor_level_1.svg"
-                      className="w-full px-2.5 py-1.5 bg-background border border-border rounded-md text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                      type="file"
+                      accept=".svg,.png,.jpg,.jpeg"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setAssetFileName(file.name);
+                        }
+                      }}
                     />
-                    <p className="text-[11px] text-muted-foreground mt-1.5">
-                      Backend automatically resolves Cloudinary storage URLs & SHA manifests.
-                    </p>
-                  </div>
+                  </label>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -345,6 +341,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                       step="0.1"
                       min="0.1"
                       required
+                      placeholder="e.g. 25.0"
                       value={widthMeters}
                       onChange={(e) => setWidthMeters(e.target.value)}
                       className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
@@ -359,6 +356,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                       step="0.1"
                       min="0.1"
                       required
+                      placeholder="e.g. 20.0"
                       value={heightMeters}
                       onChange={(e) => setHeightMeters(e.target.value)}
                       className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
@@ -384,11 +382,11 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                       onChange={(e) => setCategory(e.target.value)}
                       className="w-full px-2.5 py-2 bg-background border border-border rounded-lg text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                     >
+                      <option value="Monument">Monument</option>
                       <option value="Triumphal Arch">Triumphal Arch</option>
                       <option value="Amphitheatre">Amphitheatre</option>
                       <option value="Temple">Temple</option>
                       <option value="Gladiator Barracks">Gladiator Barracks</option>
-                      <option value="Monument">Monument</option>
                       <option value="Ruins">Ruins / Arena</option>
                     </select>
                   </div>
@@ -444,71 +442,6 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                       style={{ backgroundColor: swatch.hex }}
                     />
                   ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Right 5 Columns: Live Preview & Auto Defaults */}
-            <div className="lg:col-span-5 space-y-4">
-              {/* Live Preview Card */}
-              <div className="bg-muted/30 border border-border rounded-xl p-4 shadow-sm space-y-3">
-                <div className="flex items-center justify-between border-b border-border pb-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Live Client Preview
-                  </span>
-                  <span
-                    className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
-                      isPublished
-                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                        : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
-                    }`}
-                  >
-                    {isPublished ? 'Published' : 'Draft'}
-                  </span>
-                </div>
-
-                <div className="flex items-start gap-3">
-                  <div
-                    className="size-12 rounded-xl flex items-center justify-center text-2xl border shrink-0 transition-all"
-                    style={{
-                      backgroundColor: `${colorHex}20`,
-                      borderColor: `${colorHex}50`,
-                      color: colorHex,
-                    }}
-                  >
-                    {iconSymbol}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-bold text-foreground truncate">
-                      {name || 'Untitled Monument'}
-                    </h3>
-                    <p className="text-xs text-muted-foreground truncate">{category}</p>
-                    <div className="flex items-center gap-1 mt-1 text-[11px] font-mono text-muted-foreground truncate">
-                      <MapPin className="size-3 text-primary shrink-0" />
-                      <span>
-                        {Number(latitude).toFixed(6)}, {Number(longitude).toFixed(6)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs bg-background p-2.5 rounded-lg border border-border">
-                  <div>
-                    <span className="text-muted-foreground block text-[10px] uppercase font-semibold">
-                      Overlay Dimensions
-                    </span>
-                    <span className="font-mono text-foreground font-medium truncate block">
-                      {widthMeters}m × {heightMeters}m
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground block text-[10px] uppercase font-semibold">
-                      System Code
-                    </span>
-                    <span className="font-mono text-amber-500 font-semibold truncate block">
-                      {code || 'not_set'}
-                    </span>
-                  </div>
                 </div>
               </div>
 
