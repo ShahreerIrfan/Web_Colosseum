@@ -218,7 +218,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                     placeholder="e.g. Arch of Constantine"
                     value={name}
                     onChange={(e) => handleNameChange(e.target.value)}
-                    className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                   />
                 </div>
 
@@ -232,7 +232,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                     value={code}
                     onChange={(e) => setCode(e.target.value)}
                     placeholder="e.g. arch_of_constantine"
-                    className="w-full px-3 py-2 bg-muted/40 border border-input rounded-lg text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="w-full px-3 py-2 bg-muted/40 border border-border rounded-lg text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                   />
                 </div>
 
@@ -245,7 +245,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="Brief background for tourist mobile audioguide..."
-                    className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                   />
                 </div>
               </div>
@@ -290,7 +290,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                       required
                       value={latitude}
                       onChange={(e) => setLatitude(e.target.value)}
-                      className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                     />
                   </div>
                   <div>
@@ -303,7 +303,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                       required
                       value={longitude}
                       onChange={(e) => setLongitude(e.target.value)}
-                      className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                     />
                   </div>
                 </div>
@@ -327,7 +327,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                       value={assetFileName}
                       onChange={(e) => setAssetFileName(e.target.value)}
                       placeholder="e.g. assets/floor_map/floor_level_1.svg"
-                      className="w-full px-2.5 py-1.5 bg-background border border-input rounded-md text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      className="w-full px-2.5 py-1.5 bg-background border border-border rounded-md text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                     />
                     <p className="text-[11px] text-muted-foreground mt-1.5">
                       Backend automatically resolves Cloudinary storage URLs & SHA manifests.
@@ -347,7 +347,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                       required
                       value={widthMeters}
                       onChange={(e) => setWidthMeters(e.target.value)}
-                      className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                     />
                   </div>
                   <div>
@@ -361,7 +361,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                       required
                       value={heightMeters}
                       onChange={(e) => setHeightMeters(e.target.value)}
-                      className="w-full px-3 py-2 bg-background border border-input rounded-lg text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                     />
                   </div>
                 </div>
@@ -382,7 +382,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                     <select
                       value={category}
                       onChange={(e) => setCategory(e.target.value)}
-                      className="w-full px-2.5 py-2 bg-background border border-input rounded-lg text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      className="w-full px-2.5 py-2 bg-background border border-border rounded-lg text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                     >
                       <option value="Triumphal Arch">Triumphal Arch</option>
                       <option value="Amphitheatre">Amphitheatre</option>
@@ -402,13 +402,13 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                         type="color"
                         value={colorHex}
                         onChange={(e) => setColorHex(e.target.value)}
-                        className="size-8 rounded-md border border-input cursor-pointer bg-transparent shrink-0"
+                        className="size-8 rounded-md border border-border cursor-pointer bg-transparent shrink-0"
                       />
                       <input
                         type="text"
                         value={colorHex}
                         onChange={(e) => setColorHex(e.target.value)}
-                        className="w-full px-2 py-1.5 bg-background border border-input rounded-md text-xs font-mono text-foreground"
+                        className="w-full px-2 py-1.5 bg-background border border-border rounded-md text-xs font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                       />
                     </div>
                   </div>
@@ -420,7 +420,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                     <select
                       value={iconSymbol}
                       onChange={(e) => setIconSymbol(e.target.value)}
-                      className="w-full px-2.5 py-2 bg-background border border-input rounded-lg text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+                      className="w-full px-2.5 py-2 bg-background border border-border rounded-lg text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                     >
                       <option value="🏛️">🏛️ Arch / Monument</option>
                       <option value="🏟️">🏟️ Stadium / Arena</option>
@@ -542,7 +542,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                           value={rotationDegrees}
                           onChange={(e) => setRotationDegrees(Number(e.target.value))}
                           step="0.5"
-                          className="w-16 px-1.5 py-1 bg-background border border-input rounded text-right font-mono text-xs"
+                          className="w-16 px-1.5 py-1 bg-background border border-border rounded text-right font-mono text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                         />
                         <span className="text-muted-foreground">deg</span>
                       </div>
@@ -558,7 +558,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                           step="0.1"
                           min="0"
                           max="1"
-                          className="w-12 px-1.5 py-1 bg-background border border-input rounded text-center font-mono text-xs"
+                          className="w-12 px-1.5 py-1 bg-background border border-border rounded text-center font-mono text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                         />
                         <input
                           type="number"
@@ -567,7 +567,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                           step="0.1"
                           min="0"
                           max="1"
-                          className="w-12 px-1.5 py-1 bg-background border border-input rounded text-center font-mono text-xs"
+                          className="w-12 px-1.5 py-1 bg-background border border-border rounded text-center font-mono text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                         />
                       </div>
                     </div>
@@ -578,7 +578,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                         type="number"
                         value={zIndex}
                         onChange={(e) => setZIndex(Number(e.target.value))}
-                        className="w-14 px-1.5 py-1 bg-background border border-input rounded text-center font-mono text-xs"
+                        className="w-14 px-1.5 py-1 bg-background border border-border rounded text-center font-mono text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                       />
                     </div>
 
@@ -590,7 +590,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                           value={minZoom}
                           onChange={(e) => setMinZoom(Number(e.target.value))}
                           step="0.5"
-                          className="w-12 px-1.5 py-1 bg-background border border-input rounded text-center font-mono text-xs"
+                          className="w-12 px-1.5 py-1 bg-background border border-border rounded text-center font-mono text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                         />
                         <span>-</span>
                         <input
@@ -598,7 +598,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                           value={maxZoom}
                           onChange={(e) => setMaxZoom(Number(e.target.value))}
                           step="0.5"
-                          className="w-12 px-1.5 py-1 bg-background border border-input rounded text-center font-mono text-xs"
+                          className="w-12 px-1.5 py-1 bg-background border border-border rounded text-center font-mono text-xs focus:outline-none focus:ring-1 focus:ring-primary"
                         />
                       </div>
                     </div>
