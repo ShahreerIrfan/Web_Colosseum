@@ -20,7 +20,6 @@ export const LocationPickerMap: React.FC<LocationPickerMapProps> = ({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const tileLayerRef = useRef<L.TileLayer | null>(null);
-  const labelsLayerRef = useRef<L.TileLayer | null>(null);
 
   const onChangeRef = useRef(onChange);
   useEffect(() => {
@@ -46,23 +45,24 @@ export const LocationPickerMap: React.FC<LocationPickerMapProps> = ({
 
   const initialCenterRef = useRef<[number, number]>([validLat, validLng]);
 
-  // Initialize Map on mount
+  // Initialize Map on mount using Google Maps tiles (matching Flutter ColosseumClient)
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
     const map = L.map(mapContainerRef.current, {
       center: initialCenterRef.current,
       zoom: 17,
+      maxZoom: 21,
       zoomControl: false,
       attributionControl: false,
     });
 
     mapRef.current = map;
 
-    // Default tile layer: OpenStreetMap Standard (100% open, zero API keys required)
-    tileLayerRef.current = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors',
+    // Default tile layer: Google Maps Standard Roadmap (lyrs=m)
+    tileLayerRef.current = L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+      subdomains: ['0', '1', '2', '3'],
+      maxZoom: 21,
     }).addTo(map);
 
     // Map drag/move event listeners
@@ -144,7 +144,7 @@ export const LocationPickerMap: React.FC<LocationPickerMapProps> = ({
     }
   }, [latitude, longitude]);
 
-  // Switch between Streets and Satellite layers
+  // Switch between Google Maps Roadmap and Google Maps Satellite Hybrid
   const toggleMapType = useCallback(() => {
     if (!mapRef.current) return;
     const nextType = mapType === 'streets' ? 'satellite' : 'streets';
@@ -153,25 +153,18 @@ export const LocationPickerMap: React.FC<LocationPickerMapProps> = ({
     if (tileLayerRef.current) {
       mapRef.current.removeLayer(tileLayerRef.current);
     }
-    if (labelsLayerRef.current) {
-      mapRef.current.removeLayer(labelsLayerRef.current);
-      labelsLayerRef.current = null;
-    }
 
     if (nextType === 'satellite') {
-      tileLayerRef.current = L.tileLayer(
-        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        { maxZoom: 19 }
-      ).addTo(mapRef.current);
-
-      labelsLayerRef.current = L.tileLayer(
-        'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
-        { maxZoom: 19 }
-      ).addTo(mapRef.current);
+      // Google Maps Satellite Hybrid (lyrs=y)
+      tileLayerRef.current = L.tileLayer('https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+        subdomains: ['0', '1', '2', '3'],
+        maxZoom: 21,
+      }).addTo(mapRef.current);
     } else {
-      tileLayerRef.current = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '&copy; OpenStreetMap contributors',
+      // Google Maps Standard Roadmap (lyrs=m)
+      tileLayerRef.current = L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+        subdomains: ['0', '1', '2', '3'],
+        maxZoom: 21,
       }).addTo(mapRef.current);
     }
   }, [mapType]);
