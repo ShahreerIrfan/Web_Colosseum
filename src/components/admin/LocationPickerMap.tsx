@@ -59,14 +59,11 @@ export const LocationPickerMap: React.FC<LocationPickerMapProps> = ({
 
     mapRef.current = map;
 
-    // Default tile layer: CartoDB Voyager
-    tileLayerRef.current = L.tileLayer(
-      'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-      {
-        subdomains: 'abcd',
-        maxZoom: 20,
-      }
-    ).addTo(map);
+    // Default tile layer: OpenStreetMap Standard (100% open, zero API keys required)
+    tileLayerRef.current = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors',
+    }).addTo(map);
 
     // Map drag/move event listeners
     const handleMoveStart = () => {
@@ -172,13 +169,10 @@ export const LocationPickerMap: React.FC<LocationPickerMapProps> = ({
         { maxZoom: 19 }
       ).addTo(mapRef.current);
     } else {
-      tileLayerRef.current = L.tileLayer(
-        'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-        {
-          subdomains: 'abcd',
-          maxZoom: 20,
-        }
-      ).addTo(mapRef.current);
+      tileLayerRef.current = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors',
+      }).addTo(mapRef.current);
     }
   }, [mapType]);
 
