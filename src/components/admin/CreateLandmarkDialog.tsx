@@ -21,6 +21,7 @@ import {
   Sliders,
   Compass,
   Layers,
+  RotateCcw,
 } from 'lucide-react';
 
 interface CreateLandmarkDialogProps {
@@ -72,21 +73,44 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
 
   // Submission State
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSlugCustomized, setIsSlugCustomized] = useState(false);
+
+  // Helper to slugify a human-readable title
+  const slugify = (text: string) => {
+    return text
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+/, '');
+  };
 
   // Auto-slug generator from user input
   const handleNameChange = (val: string) => {
     setName(val);
-    const generatedSlug = val
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9]+/g, '_')
-      .replace(/^_+|_+$/g, '');
-    setCode(generatedSlug);
+    if (!isSlugCustomized) {
+      setCode(slugify(val));
+    }
+  };
+
+  // Allow manual customization of the slug by admin
+  const handleCodeChange = (val: string) => {
+    setCode(val);
+    if (val.trim() === '') {
+      setIsSlugCustomized(false);
+      setCode(slugify(name));
+    } else {
+      setIsSlugCustomized(true);
+    }
+  };
+
+  const handleResetSlugToAuto = () => {
+    setIsSlugCustomized(false);
+    setCode(slugify(name));
   };
 
   const handleResetForm = () => {
     setName('');
     setCode('');
+    setIsSlugCustomized(false);
     setDescription('');
     setLatitude(COLOSSEUM_DEFAULT_COORDS.lat.toFixed(6));
     setLongitude(COLOSSEUM_DEFAULT_COORDS.lng.toFixed(6));
@@ -107,7 +131,8 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
       showError('Validation Error', 'Monument name is required');
       return;
     }
-    if (!code.trim()) {
+    const finalCode = (code.trim() || slugify(name)).replace(/^_+|_+$/g, '');
+    if (!finalCode) {
       showError('Validation Error', 'Unique code slug is required');
       return;
     }
@@ -135,7 +160,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
     }
 
     const payload: CreateLandmarkInput = {
-      code: code.trim(),
+      code: finalCode,
       name: name.trim(),
       description: description.trim(),
       assetPath: assetFileName || 'assets/floor_map/floor_level_1.svg',
@@ -227,16 +252,33 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-foreground mb-1">
-                    System Code (Slug) <span className="text-destructive">*</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-medium text-foreground">
+                      System Code (Slug) <span className="text-destructive">*</span>
+                    </label>
+                    {isSlugCustomized ? (
+                      <button
+                        type="button"
+                        onClick={handleResetSlugToAuto}
+                        className="text-[11px] text-primary hover:underline flex items-center gap-1 cursor-pointer font-medium"
+                        title="Re-sync code with Monument Name"
+                      >
+                        <RotateCcw className="size-3" />
+                        <span>Reset to auto</span>
+                      </button>
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground font-normal">
+                        Auto-generated
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="text"
                     required
                     value={code}
-                    onChange={(e) => setCode(e.target.value)}
+                    onChange={(e) => handleCodeChange(e.target.value)}
                     placeholder="e.g. arch_of_septimius_severus"
-                    className="w-full px-3 py-2 bg-muted/40 border border-border rounded-lg text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                   />
                 </div>
 
