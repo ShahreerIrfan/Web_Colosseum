@@ -627,22 +627,68 @@ export const UserManagement: React.FC = () => {
                   <ShieldCheck className="size-3.5 text-primary" />
                   <span>Assigned System Role</span>
                 </label>
-                <div className="relative">
-                  <select
-                    value={modalForm.role}
-                    onChange={(e) =>
-                      setModalForm((prev) => ({ ...prev, role: e.target.value as SystemRole }))
-                    }
-                    className="w-full h-9 text-xs font-semibold bg-muted/30 hover:bg-muted/50 border border-border rounded-lg px-3 pr-8 appearance-none cursor-pointer text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full h-9 justify-between bg-muted/20 hover:bg-muted/40 border-border px-3 text-xs font-semibold cursor-pointer text-foreground"
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        {(() => {
+                          const roleDef = getRoleDef(modalForm.role);
+                          const RoleIcon = roleDef.icon;
+                          return (
+                            <>
+                              <RoleIcon className="size-3.5 text-primary shrink-0" />
+                              <span className="truncate">
+                                {roleDef.label} ({roleDef.badge})
+                              </span>
+                            </>
+                          );
+                        })()}
+                      </div>
+                      <ChevronDown className="size-3.5 text-muted-foreground opacity-70 shrink-0 ml-1.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    className="w-(--radix-dropdown-menu-trigger-width) min-w-56 bg-card border-border shadow-xl p-1.5 z-50"
+                    align="start"
                   >
-                    {AVAILABLE_ROLES.map((r) => (
-                      <option key={r.role} value={r.role} className="bg-card text-foreground">
-                        {r.label} ({r.badge})
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="size-3.5 text-muted-foreground pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 opacity-70" />
-                </div>
+                    <DropdownMenuLabel className="text-xs text-muted-foreground font-semibold px-2 py-1">
+                      Select System Role
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator className="bg-border" />
+                    {AVAILABLE_ROLES.map((r) => {
+                      const isSelected = modalForm.role === r.role;
+                      const RoleIcon = r.icon;
+                      return (
+                        <DropdownMenuItem
+                          key={r.role}
+                          onClick={() => setModalForm((prev) => ({ ...prev, role: r.role }))}
+                          className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
+                            isSelected
+                              ? 'bg-secondary text-secondary-foreground font-semibold'
+                              : 'text-foreground hover:bg-muted'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="flex size-6 items-center justify-center rounded-md bg-primary/10 text-primary shrink-0">
+                              <RoleIcon className="size-3.5" />
+                            </div>
+                            <div className="truncate">
+                              <span className="text-xs font-bold">{r.label}</span>
+                              <span className="text-[11px] text-muted-foreground ml-1.5 font-normal">
+                                ({r.badge})
+                              </span>
+                            </div>
+                          </div>
+                          {isSelected && <Check className="size-3.5 text-primary shrink-0" />}
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
 
               <div className="space-y-1.5">
@@ -650,26 +696,77 @@ export const UserManagement: React.FC = () => {
                   <Shield className="size-3.5 text-primary" />
                   <span>Account Status</span>
                 </label>
-                <div className="relative">
-                  <select
-                    value={modalForm.is_active ? 'active' : 'inactive'}
-                    onChange={(e) =>
-                      setModalForm((prev) => ({
-                        ...prev,
-                        is_active: e.target.value === 'active',
-                      }))
-                    }
-                    className="w-full h-9 text-xs font-semibold bg-muted/30 hover:bg-muted/50 border border-border rounded-lg px-3 pr-8 appearance-none cursor-pointer text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full h-9 justify-between bg-muted/20 hover:bg-muted/40 border-border px-3 text-xs font-semibold cursor-pointer text-foreground"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`size-2 rounded-full ${
+                            modalForm.is_active ? 'bg-emerald-500' : 'bg-destructive'
+                          }`}
+                        />
+                        <span
+                          className={
+                            modalForm.is_active
+                              ? 'text-emerald-600 dark:text-emerald-400 font-semibold'
+                              : 'text-destructive font-semibold'
+                          }
+                        >
+                          {modalForm.is_active
+                            ? 'Active (Unrestricted)'
+                            : 'Deactivated (Suspended)'}
+                        </span>
+                      </div>
+                      <ChevronDown className="size-3.5 text-muted-foreground opacity-70 shrink-0 ml-1.5" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    className="w-(--radix-dropdown-menu-trigger-width) min-w-48 bg-card border-border shadow-xl p-1.5 z-50"
+                    align="start"
                   >
-                    <option value="active" className="bg-card text-emerald-600 font-semibold">
-                      Active (Unrestricted)
-                    </option>
-                    <option value="inactive" className="bg-card text-destructive font-semibold">
-                      Deactivated (Suspended)
-                    </option>
-                  </select>
-                  <ChevronDown className="size-3.5 text-muted-foreground pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 opacity-70" />
-                </div>
+                    <DropdownMenuLabel className="text-xs text-muted-foreground font-semibold px-2 py-1">
+                      Select Account Status
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator className="bg-border" />
+                    <DropdownMenuItem
+                      onClick={() => setModalForm((prev) => ({ ...prev, is_active: true }))}
+                      className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
+                        modalForm.is_active
+                          ? 'bg-secondary text-secondary-foreground font-semibold'
+                          : 'text-foreground hover:bg-muted'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="size-2 rounded-full bg-emerald-500 shrink-0" />
+                        <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                          Active (Unrestricted)
+                        </span>
+                      </div>
+                      {modalForm.is_active && <Check className="size-3.5 text-primary shrink-0" />}
+                    </DropdownMenuItem>
+
+                    <DropdownMenuItem
+                      onClick={() => setModalForm((prev) => ({ ...prev, is_active: false }))}
+                      className={`flex items-center justify-between gap-2 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
+                        !modalForm.is_active
+                          ? 'bg-secondary text-secondary-foreground font-semibold'
+                          : 'text-foreground hover:bg-muted'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="size-2 rounded-full bg-destructive shrink-0" />
+                        <span className="text-xs font-bold text-destructive">
+                          Deactivated (Suspended)
+                        </span>
+                      </div>
+                      {!modalForm.is_active && <Check className="size-3.5 text-primary shrink-0" />}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           </div>
