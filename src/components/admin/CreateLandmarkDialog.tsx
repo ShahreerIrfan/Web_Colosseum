@@ -14,9 +14,6 @@ import { LocationPickerMap } from './LocationPickerMap';
 import { COLOSSEUM_DEFAULT_COORDS } from './mapConstants';
 import {
   Landmark as LandmarkIcon,
-  MapPin,
-  Maximize2,
-  Palette,
   ChevronDown,
   ChevronUp,
   Loader2,
@@ -31,14 +28,6 @@ interface CreateLandmarkDialogProps {
   onOpenChange: (open: boolean) => void;
   onCreated?: (landmark: Landmark) => void;
 }
-
-const PRESET_COLORS = [
-  { label: 'Imperial Red', hex: '#DD1110' },
-  { label: 'Ancient Travertine', hex: '#C68642' },
-  { label: 'Royal Azure', hex: '#2563EB' },
-  { label: 'Olive Bronze', hex: '#10B981' },
-  { label: 'Tyrian Purple', hex: '#8B5CF6' },
-];
 
 export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
   open,
@@ -269,7 +258,6 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
               <div className="space-y-3 pt-4 border-t border-border">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-wider">
-                    <MapPin className="size-3.5" />
                     <span>02 Geographic Position</span>
                   </div>
                   <span className="text-[11px] text-muted-foreground">
@@ -322,7 +310,6 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
               {/* 03 Map Overlay & Dimensions */}
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-wider">
-                  <Maximize2 className="size-3.5" />
                   <span>03 Map Overlay & Dimensions</span>
                 </div>
 
@@ -393,7 +380,6 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
               {/* 04 Pin & Marker Styling */}
               <div className="space-y-3 pt-4 border-t border-border">
                 <div className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-wider">
-                  <Palette className="size-3.5" />
                   <span>04 Pin & Marker Styling</span>
                 </div>
 
@@ -452,21 +438,6 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                       <option value="📍">📍 Waypoint Pin</option>
                     </select>
                   </div>
-                </div>
-
-                {/* Color Swatches */}
-                <div className="flex items-center gap-1.5 pt-1 flex-wrap">
-                  <span className="text-[11px] text-muted-foreground mr-1">Palettes:</span>
-                  {PRESET_COLORS.map((swatch) => (
-                    <button
-                      key={swatch.hex}
-                      type="button"
-                      onClick={() => setColorHex(swatch.hex)}
-                      title={swatch.label}
-                      className="size-5 rounded-full border border-border transition-transform hover:scale-110 cursor-pointer"
-                      style={{ backgroundColor: swatch.hex }}
-                    />
-                  ))}
                 </div>
               </div>
 

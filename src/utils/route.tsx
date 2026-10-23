@@ -4,6 +4,7 @@ import Dashboard from '@/pages/admin/Dashboard';
 import ErrorPage from '@/pages/admin/ErrorPage';
 import ModuleManagementView from '@/pages/admin/ModuleManagementView';
 import RoleManagement from '@/pages/admin/RoleManagement';
+import UserManagement from '@/pages/admin/UserManagement';
 import RbacGuard from '@/components/auth/RbacGuard';
 import Auth from '@/pages/Auth';
 import Landing from '@/pages/Landing';
@@ -48,6 +49,14 @@ export const router = createBrowserRouter([
         element: (
           <RbacGuard moduleName="Role-Based Access Control">
             <RoleManagement />
+          </RbacGuard>
+        ),
+      },
+      {
+        path: 'users',
+        element: (
+          <RbacGuard moduleName="Staff & User Accounts">
+            <UserManagement />
           </RbacGuard>
         ),
       },

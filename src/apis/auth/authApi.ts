@@ -200,6 +200,44 @@ export const authApi = {
     localStorage.setItem('colosseum_managed_users', JSON.stringify(usersList));
     return updatedUser || { id: userId, name: 'User', email: '', role };
   },
+
+  updateUserDetails: async (userId: string, data: Partial<ManagedUser>): Promise<ManagedUser> => {
+    try {
+      const response = await api.put<BaseSuccessResponse<ManagedUser>>(
+        `/auth/users/${userId}`,
+        data
+      );
+      if (response.data.data) {
+        return response.data.data;
+      }
+    } catch {
+      // Fallback
+    }
+
+    const cached = localStorage.getItem('colosseum_managed_users');
+    let usersList: ManagedUser[] = cached ? JSON.parse(cached) : [];
+    let updatedUser: ManagedUser | undefined;
+    usersList = usersList.map((u) => {
+      if (u.id === userId) {
+        updatedUser = {
+          ...u,
+          ...data,
+          updated_at: new Date().toISOString(),
+        };
+        return updatedUser;
+      }
+      return u;
+    });
+    localStorage.setItem('colosseum_managed_users', JSON.stringify(usersList));
+    return (
+      updatedUser || {
+        id: userId,
+        name: data.name || 'User',
+        email: data.email || '',
+        role: data.role || 'USER',
+      }
+    );
+  },
 };
 
 export default authApi;
