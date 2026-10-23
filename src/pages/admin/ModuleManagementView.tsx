@@ -1,4 +1,12 @@
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import useToast from '@/hooks/component/useToast';
 import type { UserPayload } from '@/types/api/authTypes';
 import { getUserPayload } from '@/utils/localStorageUtils';
@@ -7,6 +15,7 @@ import { CreateLandmarkDialog } from '@/components/admin/CreateLandmarkDialog';
 import { landmarkApi } from '@/apis/landmark/landmarkApi';
 import type { Landmark as LandmarkModel } from '@/types/api/landmarkTypes';
 import {
+  AlertTriangle,
   CheckCircle2,
   Download,
   Eye,
@@ -22,6 +31,7 @@ import {
   Settings,
   ShieldCheck,
   Ticket,
+  Trash2,
   Users,
   XCircle,
   Search,
@@ -335,6 +345,9 @@ export const ModuleManagementView: React.FC = () => {
 
   const [isCreateLandmarkOpen, setIsCreateLandmarkOpen] = useState(false);
   const [editingLandmark, setEditingLandmark] = useState<LandmarkModel | null>(null);
+  const [landmarkToDelete, setLandmarkToDelete] = useState<LandmarkModel | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [landmarks, setLandmarks] = useState<LandmarkModel[]>([]);
   const [isLoadingLandmarks, setIsLoadingLandmarks] = useState(false);
   const [landmarkSearch, setLandmarkSearch] = useState('');
@@ -405,17 +418,22 @@ export const ModuleManagementView: React.FC = () => {
     );
   });
 
-  const handleDeleteLandmark = async (idOrCode: string, name: string) => {
-    if (!window.confirm(`Are you sure you want to delete "${name}"?`)) {
-      return;
-    }
+  const handleConfirmDelete = async () => {
+    if (!landmarkToDelete) return;
+    const targetId = landmarkToDelete.id || landmarkToDelete.code;
+    const name = landmarkToDelete.name;
     try {
-      await landmarkApi.delete(idOrCode);
-      setLandmarks((prev) => prev.filter((l) => l.id !== idOrCode && l.code !== idOrCode));
-      showSuccess('Landmark Deleted', `Removed "${name}" from active records.`);
+      setIsDeleting(true);
+      await landmarkApi.delete(targetId);
+      setLandmarks((prev) => prev.filter((l) => l.id !== targetId && l.code !== targetId));
+      showSuccess('Landmark Deleted', `Removed "${name}" and its associated media completely.`);
+      setIsDeleteModalOpen(false);
+      setLandmarkToDelete(null);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Unable to delete landmark';
       showError('Delete Failed', msg);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -447,6 +465,99 @@ export const ModuleManagementView: React.FC = () => {
           }}
         />
       )}
+
+      {/* Delete Confirmation Warning Modal */}
+      <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
+        <DialogContent
+          aria-describedby={undefined}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          className="sm:max-w-md bg-card border-border shadow-2xl p-6 overflow-hidden focus:outline-none focus-visible:ring-0"
+        >
+          <DialogHeader className="pb-3 border-b border-border">
+            <div className="flex items-center gap-3">
+              <div className="flex size-11 items-center justify-center rounded-full bg-destructive/10 text-destructive font-bold shrink-0 border border-destructive/20">
+                <AlertTriangle className="size-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <DialogTitle className="text-lg font-black text-foreground tracking-tight">
+                  Delete Landmark
+                </DialogTitle>
+                <DialogDescription className="sr-only">
+                  Confirm permanent deletion of the selected monument or landmark
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="py-3 space-y-3">
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Are you sure you want to permanently delete{' '}
+              <span className="font-bold text-foreground">{landmarkToDelete?.name}</span>? This
+              action cannot be undone and will remove the monument from all active tours, floor
+              maps, and Cloudinary media assets.
+            </p>
+
+            {landmarkToDelete && (
+              <div className="p-3 bg-muted/40 border border-border rounded-xl space-y-1.5 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">System Code:</span>
+                  <span className="font-mono font-semibold text-foreground">
+                    {landmarkToDelete.code}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Coordinates:</span>
+                  <span className="font-mono text-foreground">
+                    {landmarkToDelete.location?.coordinates?.[1]?.toFixed(5)},{' '}
+                    {landmarkToDelete.location?.coordinates?.[0]?.toFixed(5)}
+                  </span>
+                </div>
+                {landmarkToDelete.dimensions && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Dimensions:</span>
+                    <span className="font-mono text-foreground">
+                      {landmarkToDelete.dimensions.widthMeters}m ×{' '}
+                      {landmarkToDelete.dimensions.heightMeters}m
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="pt-3 border-t border-border flex items-center justify-end gap-2.5">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsDeleteModalOpen(false)}
+              disabled={isDeleting}
+              className="cursor-pointer border-border hover:bg-muted focus-visible:ring-0 focus-visible:outline-none"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+              className="gap-2 bg-destructive text-destructive-foreground hover:bg-destructive/90 font-semibold cursor-pointer shadow-xs focus-visible:ring-0 focus-visible:outline-none"
+            >
+              {isDeleting ? (
+                <>
+                  <RefreshCw className="size-3.5 animate-spin" />
+                  <span>Deleting...</span>
+                </>
+              ) : (
+                <>
+                  <Trash2 className="size-3.5" />
+                  <span>Delete Landmark</span>
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Header & Breadcrumb */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
@@ -674,7 +785,10 @@ export const ModuleManagementView: React.FC = () => {
                         variant="outline"
                         size="sm"
                         disabled={!canDelete}
-                        onClick={() => handleDeleteLandmark(lm.id || lm.code, lm.name)}
+                        onClick={() => {
+                          setLandmarkToDelete(lm);
+                          setIsDeleteModalOpen(true);
+                        }}
                         className="h-8 px-3 text-xs border-destructive/20 text-destructive hover:bg-destructive/10 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         Delete
