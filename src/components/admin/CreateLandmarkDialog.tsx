@@ -1,4 +1,4 @@
-import React, { useState, useId, useCallback } from 'react';
+import React, { useState, useId, useCallback, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -28,19 +28,24 @@ import {
   Image as ImageIcon,
 } from 'lucide-react';
 
-interface CreateLandmarkDialogProps {
+export interface CreateLandmarkDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  landmarkToEdit?: Landmark | null;
   onCreated?: (landmark: Landmark) => void;
+  onUpdated?: (landmark: Landmark) => void;
 }
 
 export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
   open,
   onOpenChange,
+  landmarkToEdit,
   onCreated,
+  onUpdated,
 }) => {
   const { showSuccess, showError, showInfo } = useToast();
   const publishId = useId();
+  const isEditMode = Boolean(landmarkToEdit);
 
   // Form State - Defaulted to Colosseum coordinates as the origin pin
   const [name, setName] = useState('');
@@ -167,7 +172,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
     }
   };
 
-  const handleResetForm = () => {
+  const handleResetForm = useCallback(() => {
     setName('');
     setCode('');
     setIsSlugCustomized(false);
@@ -179,16 +184,78 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
     setAssetFileName('');
     setAssetUrl('');
     setCloudinaryPublicId('');
-    if (previewUrl) {
+    if (previewUrl?.startsWith('blob:')) {
       URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(null);
     }
+    setPreviewUrl(null);
     setCategory('Monument');
     setColorHex('#DD1110');
     setIconSymbol('🏛️');
     setIsPublished(true);
     setShowAdvanced(false);
-  };
+    setRotationDegrees(0.0);
+    setAnchorX(0.5);
+    setAnchorY(0.5);
+    setZIndex(1);
+    setMinZoom(13.0);
+    setMaxZoom(21.0);
+  }, [previewUrl]);
+
+  // Synchronize dialog state with landmarkToEdit when opened
+  useEffect(() => {
+    if (open) {
+      if (landmarkToEdit) {
+        setName(landmarkToEdit.name || '');
+        setCode(landmarkToEdit.code || landmarkToEdit.id || '');
+        setIsSlugCustomized(true);
+        setDescription(landmarkToEdit.description || '');
+        const lat =
+          landmarkToEdit.location?.coordinates?.[1] !== undefined
+            ? landmarkToEdit.location.coordinates[1].toFixed(6)
+            : COLOSSEUM_DEFAULT_COORDS.lat.toFixed(6);
+        const lng =
+          landmarkToEdit.location?.coordinates?.[0] !== undefined
+            ? landmarkToEdit.location.coordinates[0].toFixed(6)
+            : COLOSSEUM_DEFAULT_COORDS.lng.toFixed(6);
+        setLatitude(lat);
+        setLongitude(lng);
+        setWidthMeters(
+          landmarkToEdit.dimensions?.widthMeters !== undefined
+            ? String(landmarkToEdit.dimensions.widthMeters)
+            : ''
+        );
+        setHeightMeters(
+          landmarkToEdit.dimensions?.heightMeters !== undefined
+            ? String(landmarkToEdit.dimensions.heightMeters)
+            : ''
+        );
+        setAssetUrl(landmarkToEdit.assetPath || '');
+        setAssetFileName(
+          landmarkToEdit.assetPath ? landmarkToEdit.assetPath.split('/').pop() || '' : ''
+        );
+        setCloudinaryPublicId(landmarkToEdit.cloudinaryPublicId || '');
+        setPreviewUrl(landmarkToEdit.assetPath || null);
+        setRotationDegrees(landmarkToEdit.calibration?.rotationDegrees ?? 0.0);
+        setAnchorX(landmarkToEdit.calibration?.anchorX ?? 0.5);
+        setAnchorY(landmarkToEdit.calibration?.anchorY ?? 0.5);
+        setZIndex(landmarkToEdit.zIndex ?? 1);
+        setMinZoom(landmarkToEdit.minZoom ?? 13.0);
+        setMaxZoom(landmarkToEdit.maxZoom ?? 21.0);
+        setIsPublished(landmarkToEdit.isPublished ?? true);
+        setShowAdvanced(
+          Boolean(
+            landmarkToEdit.calibration?.rotationDegrees ||
+            (landmarkToEdit.calibration?.anchorX !== undefined &&
+              landmarkToEdit.calibration.anchorX !== 0.5) ||
+            (landmarkToEdit.calibration?.anchorY !== undefined &&
+              landmarkToEdit.calibration.anchorY !== 0.5)
+          )
+        );
+      } else {
+        handleResetForm();
+      }
+    }
+  }, [open, landmarkToEdit, handleResetForm]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -254,19 +321,33 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
 
     try {
       setIsSubmitting(true);
-      const created = await landmarkApi.create(payload);
-      showSuccess(
-        'Landmark Registered',
-        `"${created.name}" (${created.code}) created successfully.`
-      );
-      if (onCreated) {
-        onCreated(created);
+      if (isEditMode && landmarkToEdit) {
+        const targetId = landmarkToEdit.id || landmarkToEdit.code;
+        const updated = await landmarkApi.update(targetId, payload);
+        showSuccess('Landmark Updated', `"${updated.name}" (${updated.code}) saved successfully.`);
+        if (onUpdated) {
+          onUpdated(updated);
+        }
+      } else {
+        const created = await landmarkApi.create(payload);
+        showSuccess(
+          'Landmark Registered',
+          `"${created.name}" (${created.code}) created successfully.`
+        );
+        if (onCreated) {
+          onCreated(created);
+        }
       }
       handleResetForm();
       onOpenChange(false);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Unable to register landmark.';
-      showError('Creation Failed', msg);
+      const msg =
+        err instanceof Error
+          ? err.message
+          : isEditMode
+            ? 'Unable to update landmark.'
+            : 'Unable to register landmark.';
+      showError(isEditMode ? 'Update Failed' : 'Creation Failed', msg);
     } finally {
       setIsSubmitting(false);
     }
@@ -282,11 +363,15 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
               <LandmarkIcon className="size-5" />
             </div>
             <DialogHeader className="space-y-0.5 min-w-0">
-              <DialogTitle className="text-base sm:text-lg font-bold tracking-tight text-foreground">
-                Add New Landmark or Monument
+              <DialogTitle className="text-base sm:text-lg font-bold tracking-tight text-foreground truncate">
+                {isEditMode
+                  ? `Edit Landmark: ${landmarkToEdit?.name || name}`
+                  : 'Add New Landmark or Monument'}
               </DialogTitle>
               <DialogDescription className="sr-only">
-                Create a new landmark or monument record
+                {isEditMode
+                  ? 'Update existing landmark configuration'
+                  : 'Create a new landmark or monument record'}
               </DialogDescription>
             </DialogHeader>
           </div>
@@ -323,7 +408,11 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                     <label className="text-xs font-medium text-foreground">
                       System Code (Slug) <span className="text-destructive">*</span>
                     </label>
-                    {isSlugCustomized ? (
+                    {isEditMode ? (
+                      <span className="text-[10px] text-muted-foreground font-normal">
+                        Fixed identifier
+                      </span>
+                    ) : isSlugCustomized ? (
                       <button
                         type="button"
                         onClick={handleResetSlugToAuto}
@@ -342,10 +431,11 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                   <input
                     type="text"
                     required
+                    disabled={isEditMode}
                     value={code}
                     onChange={(e) => handleCodeChange(e.target.value)}
                     placeholder="e.g. arch_of_septimius_severus"
-                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                    className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm font-mono text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary disabled:opacity-60 disabled:bg-muted/40 disabled:cursor-not-allowed"
                   />
                 </div>
 
@@ -785,18 +875,18 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
               </Button>
               <Button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || isUploadingAsset}
                 size="sm"
-                className="bg-primary text-primary-foreground font-semibold gap-1.5 cursor-pointer shadow-sm"
+                className="bg-primary text-primary-foreground font-semibold gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
               >
                 {isSubmitting ? (
                   <>
                     <Loader2 className="size-3.5 animate-spin" />
-                    <span>Registering...</span>
+                    <span>{isEditMode ? 'Saving Changes...' : 'Registering...'}</span>
                   </>
                 ) : (
                   <>
-                    <span>Create Landmark</span>
+                    <span>{isEditMode ? 'Save Changes' : 'Create Landmark'}</span>
                     <span>→</span>
                   </>
                 )}
@@ -809,4 +899,5 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
   );
 };
 
+export const LandmarkFormDialog = CreateLandmarkDialog;
 export default CreateLandmarkDialog;

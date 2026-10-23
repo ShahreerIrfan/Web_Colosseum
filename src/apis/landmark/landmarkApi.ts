@@ -450,6 +450,8 @@ export interface CreateLandmarkInput {
   isPublished?: boolean;
 }
 
+export type UpdateLandmarkInput = Partial<CreateLandmarkInput>;
+
 interface BackendLandmarkRaw {
   id: string;
   code?: string;
@@ -471,6 +473,9 @@ interface BackendLandmarkRaw {
   viewpointCount?: number;
   floorCount?: number;
   estimatedTourDurationMinutes?: number;
+  zIndex?: number;
+  minZoom?: number;
+  maxZoom?: number;
   isPublished?: boolean;
 }
 
@@ -541,6 +546,9 @@ const mapRawLandmark = (raw: BackendLandmarkRaw): Landmark => {
     estimatedTourDurationMinutes:
       raw.estimatedTourDurationMinutes ?? (match?.estimatedTourDurationMinutes || 30),
     isPublished: raw.isPublished ?? true,
+    zIndex: raw.zIndex ?? match?.zIndex ?? 1,
+    minZoom: raw.minZoom ?? match?.minZoom ?? 13.0,
+    maxZoom: raw.maxZoom ?? match?.maxZoom ?? 21.0,
     floors: match?.floors || MOCK_COLOSSEUM_FLOORS,
     viewpoints: match?.viewpoints || MOCK_VIEWPOINTS,
   };
@@ -741,6 +749,56 @@ export const landmarkApi = {
       };
       MOCK_LANDMARKS.unshift(newLandmark);
       return newLandmark;
+    }
+  },
+
+  update: async (id: string, payload: UpdateLandmarkInput): Promise<Landmark> => {
+    try {
+      const response = await api.patch(ENDPOINTS.LANDMARKS.GET_BY_ID(id), payload);
+      const raw =
+        response.data.data || (response.data as unknown as { payload: BackendLandmarkRaw }).payload;
+      const updated = mapRawLandmark(raw);
+      const idx = MOCK_LANDMARKS.findIndex((l) => l.id === id || l.code === id);
+      if (idx !== -1) {
+        MOCK_LANDMARKS[idx] = updated;
+      }
+      return updated;
+    } catch {
+      // Offline fallback: update local mock
+      const idx = MOCK_LANDMARKS.findIndex((l) => l.id === id || l.code === id);
+      const existing = idx !== -1 ? MOCK_LANDMARKS[idx] : null;
+      const updated: Landmark = {
+        id: existing?.id || id,
+        code: payload.code || existing?.code || id,
+        name: payload.name ?? existing?.name ?? 'Updated Landmark',
+        description: payload.description ?? existing?.description ?? '',
+        assetPath: payload.assetPath ?? existing?.assetPath ?? '',
+        cloudinaryPublicId: payload.cloudinaryPublicId ?? existing?.cloudinaryPublicId ?? '',
+        thumbnailUrl: existing?.thumbnailUrl || '',
+        location: payload.center
+          ? {
+              type: 'Point',
+              coordinates: [payload.center.longitude, payload.center.latitude],
+            }
+          : existing?.location || { type: 'Point', coordinates: [12.4922, 41.8902] },
+        dimensions: {
+          widthMeters: payload.widthMeters ?? existing?.dimensions.widthMeters ?? 100,
+          heightMeters: payload.heightMeters ?? existing?.dimensions.heightMeters ?? 100,
+        },
+        calibration: {
+          rotationDegrees: payload.rotationDegrees ?? existing?.calibration.rotationDegrees ?? 0,
+          anchorX: payload.anchorX ?? existing?.calibration.anchorX ?? 0.5,
+          anchorY: payload.anchorY ?? existing?.calibration.anchorY ?? 0.5,
+        },
+        viewpointCount: existing?.viewpointCount ?? 0,
+        floorCount: existing?.floorCount ?? 1,
+        estimatedTourDurationMinutes: existing?.estimatedTourDurationMinutes ?? 30,
+        isPublished: payload.isPublished ?? existing?.isPublished ?? true,
+      };
+      if (idx !== -1) {
+        MOCK_LANDMARKS[idx] = updated;
+      }
+      return updated;
     }
   },
 

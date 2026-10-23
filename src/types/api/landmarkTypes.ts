@@ -74,6 +74,9 @@ export interface Landmark {
   floorCount: number;
   estimatedTourDurationMinutes: number;
   isPublished: boolean;
+  zIndex?: number;
+  minZoom?: number;
+  maxZoom?: number;
   floors?: FloorLevel[];
   viewpoints?: Viewpoint[];
 }

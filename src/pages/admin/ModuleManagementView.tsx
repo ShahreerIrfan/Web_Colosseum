@@ -334,6 +334,7 @@ export const ModuleManagementView: React.FC = () => {
   const { showSuccess, showInfo, showError } = useToast();
 
   const [isCreateLandmarkOpen, setIsCreateLandmarkOpen] = useState(false);
+  const [editingLandmark, setEditingLandmark] = useState<LandmarkModel | null>(null);
   const [landmarks, setLandmarks] = useState<LandmarkModel[]>([]);
   const [isLoadingLandmarks, setIsLoadingLandmarks] = useState(false);
   const [landmarkSearch, setLandmarkSearch] = useState('');
@@ -420,16 +421,29 @@ export const ModuleManagementView: React.FC = () => {
 
   return (
     <div className="flex-1 bg-background text-foreground space-y-6 max-w-6xl mx-auto w-full pb-12">
-      {/* Create Landmark Modal */}
+      {/* Create / Edit Landmark Modal */}
       {moduleKey === 'landmarks' && (
         <CreateLandmarkDialog
           open={isCreateLandmarkOpen}
-          onOpenChange={setIsCreateLandmarkOpen}
+          onOpenChange={(open) => {
+            setIsCreateLandmarkOpen(open);
+            if (!open) {
+              setEditingLandmark(null);
+            }
+          }}
+          landmarkToEdit={editingLandmark}
           onCreated={(newLandmark) => {
             setLandmarks((prev) => [
               newLandmark,
               ...prev.filter((l) => l.code !== newLandmark.code && l.id !== newLandmark.id),
             ]);
+          }}
+          onUpdated={(updatedLandmark) => {
+            setLandmarks((prev) =>
+              prev.map((l) =>
+                l.id === updatedLandmark.id || l.code === updatedLandmark.code ? updatedLandmark : l
+              )
+            );
           }}
         />
       )}
@@ -472,6 +486,7 @@ export const ModuleManagementView: React.FC = () => {
             disabled={!canCreate}
             onClick={() => {
               if (moduleKey === 'landmarks') {
+                setEditingLandmark(null);
                 setIsCreateLandmarkOpen(true);
               } else {
                 showSuccess('Entry Created', `New ${moduleDef.singular} draft initialized.`);
@@ -647,7 +662,10 @@ export const ModuleManagementView: React.FC = () => {
                         variant="outline"
                         size="sm"
                         disabled={!canUpdate}
-                        onClick={() => showInfo('Edit Triggered', `Editing "${lm.name}"...`)}
+                        onClick={() => {
+                          setEditingLandmark(lm);
+                          setIsCreateLandmarkOpen(true);
+                        }}
                         className="h-8 px-3 text-xs border-border hover:bg-muted cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         Edit
