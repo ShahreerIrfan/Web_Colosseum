@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -22,12 +21,9 @@ import type { ManagedUser, UserPayload } from '@/types/api/authTypes';
 import { getUserPayload } from '@/utils/localStorageUtils';
 import { getFallbackRbacForRole } from '@/utils/rbacUtils';
 import {
-  Calendar,
   Check,
   ChevronDown,
-  Clock,
   Copy,
-  Layers,
   Mail,
   RefreshCw,
   Search,
@@ -545,28 +541,19 @@ export const UserManagement: React.FC = () => {
 
       {/* User Information Modal Dialog */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-xl bg-card border-border shadow-2xl p-6 overflow-hidden">
+        <DialogContent
+          aria-describedby={undefined}
+          className="sm:max-w-xl bg-card border-border shadow-2xl p-6 overflow-hidden"
+        >
           <DialogHeader className="pb-3 border-b border-border">
             <div className="flex items-center gap-3">
               <div className="flex size-11 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-base shrink-0 border border-primary/20">
                 {modalForm.name?.charAt(0)?.toUpperCase() || 'U'}
               </div>
               <div className="min-w-0 flex-1">
-                <DialogTitle className="text-lg font-black text-foreground tracking-tight flex items-center gap-2">
-                  <span>{selectedUser?.name || 'User Profile'}</span>
-                  {selectedUser && (
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                        getRoleDef(modalForm.role).badgeClass
-                      }`}
-                    >
-                      {getRoleDef(modalForm.role).label}
-                    </span>
-                  )}
+                <DialogTitle className="text-lg font-black text-foreground tracking-tight">
+                  {selectedUser?.name || 'User Profile'}
                 </DialogTitle>
-                <DialogDescription className="text-xs text-muted-foreground mt-0.5">
-                  Complete account specifications, role privileges, and system assignments
-                </DialogDescription>
               </div>
             </div>
           </DialogHeader>
@@ -656,9 +643,6 @@ export const UserManagement: React.FC = () => {
                   </select>
                   <ChevronDown className="size-3.5 text-muted-foreground pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 opacity-70" />
                 </div>
-                <p className="text-[11px] text-muted-foreground">
-                  {getRoleDef(modalForm.role).description}
-                </p>
               </div>
 
               <div className="space-y-1.5">
@@ -685,57 +669,6 @@ export const UserManagement: React.FC = () => {
                     </option>
                   </select>
                   <ChevronDown className="size-3.5 text-muted-foreground pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 opacity-70" />
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  {modalForm.is_active
-                    ? 'User has authorization to authenticate and operate.'
-                    : 'Account access is locked.'}
-                </p>
-              </div>
-            </div>
-
-            {/* Floor Access Scope */}
-            <div className="space-y-1.5 bg-muted/30 border border-border rounded-xl p-3">
-              <div className="flex items-center gap-2 text-xs font-bold text-foreground">
-                <Layers className="size-3.5 text-primary" />
-                <span>Floor Access Scope</span>
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                {modalForm.role === 'SUPER_ADMIN' || modalForm.role === 'ADMIN'
-                  ? 'Unrestricted Administrative Scope — Full access across all Park vector floors (Level -1 Hypogeum, Level 1 Arena, Level 2 Corridors, Attic).'
-                  : modalForm.role === 'MODERATOR'
-                    ? 'Moderation Scope — Assigned to Level -1 Underground & Level 1 Arena corridors.'
-                    : 'Standard Tourist Scope — Public visitor audio narration and map viewing.'}
-              </p>
-            </div>
-
-            {/* Timestamps */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-border">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Calendar className="size-3.5 shrink-0 opacity-70" />
-                <div>
-                  <span className="font-semibold block text-foreground text-[11px]">
-                    Registration Date
-                  </span>
-                  <span className="text-[11px] font-mono">
-                    {selectedUser?.created_at
-                      ? new Date(selectedUser.created_at).toLocaleString()
-                      : 'Jan 15, 2026, 10:30 AM'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Clock className="size-3.5 shrink-0 opacity-70" />
-                <div>
-                  <span className="font-semibold block text-foreground text-[11px]">
-                    Last Updated
-                  </span>
-                  <span className="text-[11px] font-mono">
-                    {selectedUser?.updated_at
-                      ? new Date(selectedUser.updated_at).toLocaleString()
-                      : 'Just now'}
-                  </span>
                 </div>
               </div>
             </div>
