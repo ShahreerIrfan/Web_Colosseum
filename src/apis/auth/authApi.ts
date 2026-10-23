@@ -2,6 +2,7 @@ import api from '@/apis/axios';
 import type { BaseSuccessResponse } from '@/types/api/CommonTypes';
 import type {
   AuthResponse,
+  ManagedUser,
   SignInRequest,
   SignUpRequest,
   UserPayload,
@@ -103,6 +104,101 @@ export const authApi = {
   getMe: async (): Promise<UserPayload> => {
     const response = await api.get<BaseSuccessResponse<UserPayload>>(ENDPOINTS.AUTH.PROFILE);
     return response.data.data || (response.data as unknown as { payload: UserPayload }).payload;
+  },
+
+  getAllUsers: async (): Promise<ManagedUser[]> => {
+    try {
+      const response = await api.get<BaseSuccessResponse<{ users: ManagedUser[]; total: number }>>(
+        ENDPOINTS.AUTH.USERS
+      );
+      const data = response.data.data;
+      if (data && Array.isArray(data.users)) {
+        return data.users;
+      }
+    } catch {
+      // Fallback
+    }
+
+    const cached = localStorage.getItem('colosseum_managed_users');
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch {
+        // ignore
+      }
+    }
+
+    const initialMock: ManagedUser[] = [
+      {
+        id: 'usr_admin',
+        name: 'Primary Administrator',
+        email: 'admin@colosseumtour.it',
+        role: 'SUPER_ADMIN',
+        is_active: true,
+        created_at: '2026-01-10T08:00:00Z',
+      },
+      {
+        id: 'usr_mod',
+        name: 'Content Moderator',
+        email: 'moderator@colosseumtour.it',
+        role: 'MODERATOR',
+        is_active: true,
+        created_at: '2026-01-15T10:30:00Z',
+      },
+      {
+        id: 'usr_marcus',
+        name: 'Marcus Aurelius',
+        email: 'marcus@roma.it',
+        role: 'ADMIN',
+        is_active: true,
+        created_at: '2026-02-01T14:15:00Z',
+      },
+      {
+        id: 'usr_a',
+        name: 'User A',
+        email: 'user.a@colosseumtour.it',
+        role: 'USER',
+        is_active: true,
+        created_at: '2026-02-12T11:45:00Z',
+      },
+      {
+        id: 'usr_julia',
+        name: 'Julia Visitor',
+        email: 'julia.visitor@gmail.com',
+        role: 'USER',
+        is_active: true,
+        created_at: '2026-02-20T09:20:00Z',
+      },
+    ];
+    localStorage.setItem('colosseum_managed_users', JSON.stringify(initialMock));
+    return initialMock;
+  },
+
+  updateUserRole: async (userId: string, role: string): Promise<ManagedUser> => {
+    try {
+      const response = await api.patch<BaseSuccessResponse<ManagedUser>>(
+        ENDPOINTS.AUTH.UPDATE_ROLE(userId),
+        { role }
+      );
+      if (response.data.data) {
+        return response.data.data;
+      }
+    } catch {
+      // Fallback
+    }
+
+    const cached = localStorage.getItem('colosseum_managed_users');
+    let usersList: ManagedUser[] = cached ? JSON.parse(cached) : [];
+    let updatedUser: ManagedUser | undefined;
+    usersList = usersList.map((u) => {
+      if (u.id === userId) {
+        updatedUser = { ...u, role };
+        return updatedUser;
+      }
+      return u;
+    });
+    localStorage.setItem('colosseum_managed_users', JSON.stringify(usersList));
+    return updatedUser || { id: userId, name: 'User', email: '', role };
   },
 };
 

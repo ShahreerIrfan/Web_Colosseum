@@ -423,6 +423,32 @@ const MOCK_FAQS: VisitorFaqItem[] = [
 ];
 
 // Helper mapper to safely normalize live backend landmarks to frontend schema
+export interface CreateLandmarkInput {
+  code: string;
+  name: string;
+  description?: string;
+  assetPath: string;
+  center: {
+    latitude: number;
+    longitude: number;
+  };
+  widthMeters: number;
+  heightMeters: number;
+  rotationDegrees?: number;
+  anchorX?: number;
+  anchorY?: number;
+  zIndex?: number;
+  minZoom?: number;
+  maxZoom?: number;
+  marker?: {
+    colorHex?: string;
+    category?: string;
+    iconName?: string;
+    labelOffsetY?: number;
+  };
+  isPublished?: boolean;
+}
+
 interface BackendLandmarkRaw {
   id: string;
   code?: string;
@@ -668,6 +694,63 @@ export const landmarkApi = {
       return response.data.data;
     } catch {
       return MOCK_FAQS;
+    }
+  },
+
+  create: async (payload: CreateLandmarkInput): Promise<Landmark> => {
+    try {
+      const response = await api.post<BaseSuccessResponse<BackendLandmarkRaw>>(
+        ENDPOINTS.LANDMARKS.LIST,
+        payload
+      );
+      const raw =
+        response.data.data || (response.data as unknown as { payload: BackendLandmarkRaw }).payload;
+      const created = mapRawLandmark(raw);
+      MOCK_LANDMARKS.unshift(created);
+      return created;
+    } catch {
+      // Offline fallback: generate mock landmark
+      const newLandmark: Landmark = {
+        id: payload.code,
+        code: payload.code,
+        name: payload.name,
+        description: payload.description || '',
+        assetPath: payload.assetPath || 'assets/floor_map/floor_level_1.svg',
+        thumbnailUrl:
+          'https://images.unsplash.com/photo-1552832230-c0197dd311b5?w=800&auto=format&fit=crop&q=80',
+        location: {
+          type: 'Point',
+          coordinates: [payload.center.longitude, payload.center.latitude],
+        },
+        dimensions: {
+          widthMeters: payload.widthMeters,
+          heightMeters: payload.heightMeters,
+        },
+        calibration: {
+          rotationDegrees: payload.rotationDegrees ?? 0,
+          anchorX: payload.anchorX ?? 0.5,
+          anchorY: payload.anchorY ?? 0.5,
+        },
+        viewpointCount: 0,
+        floorCount: 1,
+        estimatedTourDurationMinutes: 30,
+        isPublished: payload.isPublished ?? true,
+      };
+      MOCK_LANDMARKS.unshift(newLandmark);
+      return newLandmark;
+    }
+  },
+
+  delete: async (id: string): Promise<boolean> => {
+    try {
+      await api.delete(ENDPOINTS.LANDMARKS.GET_BY_ID(id));
+      const idx = MOCK_LANDMARKS.findIndex((l) => l.id === id || l.code === id);
+      if (idx !== -1) MOCK_LANDMARKS.splice(idx, 1);
+      return true;
+    } catch {
+      const idx = MOCK_LANDMARKS.findIndex((l) => l.id === id || l.code === id);
+      if (idx !== -1) MOCK_LANDMARKS.splice(idx, 1);
+      return true;
     }
   },
 };

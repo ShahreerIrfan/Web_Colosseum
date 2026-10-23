@@ -3,6 +3,9 @@ import useToast from '@/hooks/component/useToast';
 import type { UserPayload } from '@/types/api/authTypes';
 import { getUserPayload } from '@/utils/localStorageUtils';
 import { getEffectiveRbac, isModuleVisibleInSidebar } from '@/utils/rbacUtils';
+import { CreateLandmarkDialog } from '@/components/admin/CreateLandmarkDialog';
+import { landmarkApi } from '@/apis/landmark/landmarkApi';
+import type { Landmark as LandmarkModel } from '@/types/api/landmarkTypes';
 import {
   CheckCircle2,
   Download,
@@ -21,8 +24,12 @@ import {
   Ticket,
   Users,
   XCircle,
+  Search,
+  Loader2,
+  MapPin,
+  Maximize2,
 } from 'lucide-react';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 
 const MODULE_DEFINITIONS: Record<
@@ -302,7 +309,12 @@ const MODULE_DEFINITIONS: Record<
 
 export const ModuleManagementView: React.FC = () => {
   const { moduleKey = 'viewpoints' } = useParams<{ moduleKey: string }>();
-  const { showSuccess, showInfo } = useToast();
+  const { showSuccess, showInfo, showError } = useToast();
+
+  const [isCreateLandmarkOpen, setIsCreateLandmarkOpen] = useState(false);
+  const [landmarks, setLandmarks] = useState<LandmarkModel[]>([]);
+  const [isLoadingLandmarks, setIsLoadingLandmarks] = useState(false);
+  const [landmarkSearch, setLandmarkSearch] = useState('');
 
   const user = useMemo<UserPayload | null>(() => {
     try {
@@ -314,14 +326,30 @@ export const ModuleManagementView: React.FC = () => {
 
   const moduleDef = MODULE_DEFINITIONS[moduleKey];
 
+  // Fetch real landmarks when viewing landmarks module
+  useEffect(() => {
+    if (moduleKey === 'landmarks') {
+      setIsLoadingLandmarks(true);
+      landmarkApi
+        .getAll()
+        .then((res) => {
+          setLandmarks(res);
+        })
+        .catch((err) => {
+          console.error('Failed to load landmarks:', err);
+        })
+        .finally(() => {
+          setIsLoadingLandmarks(false);
+        });
+    }
+  }, [moduleKey]);
+
   // If module key doesn't exist, redirect to error
   if (!moduleDef) {
     return <Navigate to="/admin/dashboard/error" replace />;
   }
 
   // Check if current user has access to this module
-  // "if a user don't have access to a module but trys to login with link : ( for example : "http://localhost:5173/admin/dashboard/viewpoints" )
-  // redirect him to the : http://localhost:5173/admin/dashboard/error"
   const hasAccess = isModuleVisibleInSidebar(moduleDef.name, user);
   if (!hasAccess) {
     return <Navigate to="/admin/dashboard/error" replace />;
@@ -344,8 +372,46 @@ export const ModuleManagementView: React.FC = () => {
   const canUpdate = currentRbac.Update === 'true';
   const canDelete = currentRbac.Delete === 'true';
 
+  const filteredLandmarks = landmarks.filter((l) => {
+    if (!landmarkSearch.trim()) return true;
+    const q = landmarkSearch.toLowerCase();
+    return (
+      l.name.toLowerCase().includes(q) ||
+      l.code.toLowerCase().includes(q) ||
+      (l.description && l.description.toLowerCase().includes(q))
+    );
+  });
+
+  const handleDeleteLandmark = async (idOrCode: string, name: string) => {
+    if (!window.confirm(`Are you sure you want to delete "${name}"?`)) {
+      return;
+    }
+    try {
+      await landmarkApi.delete(idOrCode);
+      setLandmarks((prev) => prev.filter((l) => l.id !== idOrCode && l.code !== idOrCode));
+      showSuccess('Landmark Deleted', `Removed "${name}" from active records.`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unable to delete landmark';
+      showError('Delete Failed', msg);
+    }
+  };
+
   return (
     <div className="flex-1 bg-background text-foreground space-y-6 max-w-6xl mx-auto w-full pb-12">
+      {/* Create Landmark Modal */}
+      {moduleKey === 'landmarks' && (
+        <CreateLandmarkDialog
+          open={isCreateLandmarkOpen}
+          onOpenChange={setIsCreateLandmarkOpen}
+          onCreated={(newLandmark) => {
+            setLandmarks((prev) => [
+              newLandmark,
+              ...prev.filter((l) => l.code !== newLandmark.code && l.id !== newLandmark.id),
+            ]);
+          }}
+        />
+      )}
+
       {/* Header & Breadcrumb */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
         <div className="space-y-1">
@@ -376,9 +442,13 @@ export const ModuleManagementView: React.FC = () => {
           <Button
             size="sm"
             disabled={!canCreate}
-            onClick={() =>
-              showSuccess('Entry Created', `New ${moduleDef.singular} draft initialized.`)
-            }
+            onClick={() => {
+              if (moduleKey === 'landmarks') {
+                setIsCreateLandmarkOpen(true);
+              } else {
+                showSuccess('Entry Created', `New ${moduleDef.singular} draft initialized.`);
+              }
+            }}
             className="gap-2 bg-primary text-primary-foreground font-semibold cursor-pointer shadow-xs hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
             title={canCreate ? `Create new ${moduleDef.singular}` : 'Requires Create permission'}
           >
@@ -457,7 +527,7 @@ export const ModuleManagementView: React.FC = () => {
 
       {/* Module Data Table */}
       <div className="bg-card border border-border rounded-2xl shadow-xs overflow-hidden">
-        <div className="p-4 sm:p-5 border-b border-border bg-secondary/30 flex items-center justify-between">
+        <div className="p-4 sm:p-5 border-b border-border bg-secondary/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-bold text-foreground">
               Active {moduleDef.name} Catalog Entries
@@ -466,50 +536,156 @@ export const ModuleManagementView: React.FC = () => {
               Manage live records, coordinate calibrations, and sync manifests.
             </p>
           </div>
-          <span className="text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary font-bold">
-            {moduleDef.sampleData.length} Registered
-          </span>
+
+          <div className="flex items-center gap-3">
+            {moduleKey === 'landmarks' && (
+              <div className="relative">
+                <Search className="size-3.5 absolute left-2.5 top-2.5 text-muted-foreground" />
+                <input
+                  type="text"
+                  placeholder="Filter landmarks..."
+                  value={landmarkSearch}
+                  onChange={(e) => setLandmarkSearch(e.target.value)}
+                  className="pl-8 pr-3 py-1.5 bg-background border border-input rounded-lg text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary w-48 sm:w-60"
+                />
+              </div>
+            )}
+            <span className="text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary font-bold whitespace-nowrap">
+              {moduleKey === 'landmarks'
+                ? `${filteredLandmarks.length} Registered`
+                : `${moduleDef.sampleData.length} Registered`}
+            </span>
+          </div>
         </div>
 
-        <div className="divide-y divide-border">
-          {moduleDef.sampleData.map((item) => (
-            <div
-              key={item.id}
-              className="p-4 sm:px-6 hover:bg-muted/30 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-            >
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-sm text-foreground">{item.title}</span>
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground font-mono">
-                    {item.tag}
-                  </span>
+        {/* Landmarks Specific Catalog */}
+        {moduleKey === 'landmarks' ? (
+          <div>
+            {isLoadingLandmarks ? (
+              <div className="p-8 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="size-4 animate-spin text-primary" />
+                <span>Loading active monuments...</span>
+              </div>
+            ) : filteredLandmarks.length === 0 ? (
+              <div className="p-10 text-center space-y-2">
+                <p className="text-sm font-medium text-foreground">No landmarks found</p>
+                <p className="text-xs text-muted-foreground">
+                  {landmarkSearch
+                    ? 'No records match your search filter.'
+                    : 'Click "New Landmark" above to create your first monument.'}
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {filteredLandmarks.map((lm) => (
+                  <div
+                    key={lm.id || lm.code}
+                    className="p-4 sm:px-6 hover:bg-muted/30 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  >
+                    <div className="space-y-1.5 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-sm text-foreground">{lm.name}</span>
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground font-mono">
+                          {lm.code}
+                        </span>
+                        <span
+                          className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                            lm.isPublished
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                              : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                          }`}
+                        >
+                          {lm.isPublished ? 'Published' : 'Draft'}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                        <span className="flex items-center gap-1 font-mono text-[11px]">
+                          <MapPin className="size-3 text-primary shrink-0" />
+                          Lat: {lm.location?.coordinates?.[1]?.toFixed(5) ?? '0.00000'}, Lng:{' '}
+                          {lm.location?.coordinates?.[0]?.toFixed(5) ?? '0.00000'}
+                        </span>
+                        <span>•</span>
+                        <span className="flex items-center gap-1 font-mono text-[11px]">
+                          <Maximize2 className="size-3 text-primary shrink-0" />
+                          {lm.dimensions?.widthMeters ?? 0}m × {lm.dimensions?.heightMeters ?? 0}m
+                        </span>
+                        {lm.description && (
+                          <>
+                            <span>•</span>
+                            <span className="truncate max-w-xs">{lm.description}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!canUpdate}
+                        onClick={() => showInfo('Edit Triggered', `Editing "${lm.name}"...`)}
+                        className="h-8 px-3 text-xs border-border hover:bg-muted cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!canDelete}
+                        onClick={() => handleDeleteLandmark(lm.id || lm.code, lm.name)}
+                        className="h-8 px-3 text-xs border-destructive/20 text-destructive hover:bg-destructive/10 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          /* Standard Generic Catalog for other modules */
+          <div className="divide-y divide-border">
+            {moduleDef.sampleData.map((item) => (
+              <div
+                key={item.id}
+                className="p-4 sm:px-6 hover:bg-muted/30 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm text-foreground">{item.title}</span>
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground font-mono">
+                      {item.tag}
+                    </span>
+                  </div>
+                  <div className="text-xs text-muted-foreground">{item.subtitle}</div>
                 </div>
-                <div className="text-xs text-muted-foreground">{item.subtitle}</div>
-              </div>
 
-              <div className="flex items-center gap-2 self-end sm:self-auto">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!canUpdate}
-                  onClick={() => showInfo('Edit Triggered', `Editing "${item.title}"...`)}
-                  className="h-8 px-3 text-xs border-border hover:bg-muted cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  Edit
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!canDelete}
-                  onClick={() => showSuccess('Removed', `Entry "${item.title}" deleted.`)}
-                  className="h-8 px-3 text-xs border-destructive/20 text-destructive hover:bg-destructive/10 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  Delete
-                </Button>
+                <div className="flex items-center gap-2 self-end sm:self-auto">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!canUpdate}
+                    onClick={() => showInfo('Edit Triggered', `Editing "${item.title}"...`)}
+                    className="h-8 px-3 text-xs border-border hover:bg-muted cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!canDelete}
+                    onClick={() => showSuccess('Removed', `Entry "${item.title}" deleted.`)}
+                    className="h-8 px-3 text-xs border-destructive/20 text-destructive hover:bg-destructive/10 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Delete
+                  </Button>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

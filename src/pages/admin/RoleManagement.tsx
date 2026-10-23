@@ -11,7 +11,9 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import useToast from '@/hooks/component/useToast';
 import {
+  Ban,
   Check,
+  CheckCheck,
   ChevronDown,
   RotateCcw,
   Save,
@@ -20,10 +22,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   User,
-  SlidersHorizontal,
   X,
-  CheckCheck,
-  Ban,
 } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 
@@ -301,7 +300,6 @@ const STORAGE_KEY = 'colosseum_rbac_permissions_v2';
 export const RoleManagement: React.FC = () => {
   const [selectedRole, setSelectedRole] = useState<RoleId>('super_admin');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('All');
 
   const [permissions, setPermissions] = useState<RolePermissions>(() => {
     try {
@@ -329,28 +327,19 @@ export const RoleManagement: React.FC = () => {
   const currentRoleData = ROLES.find((r) => r.id === selectedRole) || ROLES[0];
   const CurrentRoleIcon = currentRoleData.icon;
 
-  // Extract unique categories
-  const categories = useMemo(() => {
-    const list = Array.from(new Set(MODULES.map((m) => m.category)));
-    return ['All', ...list];
-  }, []);
-
-  // Filter modules by search and category
+  // Filter modules by search
   const filteredModules = useMemo(() => {
-    return MODULES.filter((m) => {
-      const matchesCategory = selectedCategory === 'All' || m.category === selectedCategory;
-      const query = searchQuery.trim().toLowerCase();
-      if (!query) return matchesCategory;
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return MODULES;
 
-      const matchesSearch =
+    return MODULES.filter(
+      (m) =>
         m.name.toLowerCase().includes(query) ||
         m.description.toLowerCase().includes(query) ||
         m.category.toLowerCase().includes(query) ||
-        m.scope.some((s) => s.toLowerCase().includes(query));
-
-      return matchesCategory && matchesSearch;
-    });
-  }, [searchQuery, selectedCategory]);
+        m.scope.some((s) => s.toLowerCase().includes(query))
+    );
+  }, [searchQuery]);
 
   const handleToggle = (role: RoleId, moduleId: string, action: CrudAction, checked: boolean) => {
     setPermissions((prev) => ({
@@ -531,58 +520,14 @@ export const RoleManagement: React.FC = () => {
     showInfo('All Revoked', `Revoked all permissions across modules for ${currentRoleData.name}.`);
   };
 
-  // Scope badge styler
-  const renderScopeBadge = (scope: ProjectScope) => {
-    switch (scope) {
-      case 'Backend':
-        return (
-          <span
-            key={scope}
-            className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-          >
-            Backend
-          </span>
-        );
-      case 'Client':
-        return (
-          <span
-            key={scope}
-            className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20"
-          >
-            Mobile App
-          </span>
-        );
-      case 'Web':
-        return (
-          <span
-            key={scope}
-            className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20"
-          >
-            Admin Web
-          </span>
-        );
-    }
-  };
-
   return (
     <div className="flex-1 bg-background text-foreground space-y-8 max-w-6xl mx-auto w-full pb-12">
-      {/* Page Title & Breadcrumb */}
+      {/* Page Title */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-border">
         <div className="space-y-1">
-          <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-secondary text-secondary-foreground text-xs font-semibold">
-            <ShieldCheck className="w-3.5 h-3.5 text-primary" />
-            <span>Role-Based Access Control</span>
-            <span className="text-[10px] font-mono opacity-60">
-              ({MODULES.length} System Modules)
-            </span>
-          </div>
           <h1 className="text-2xl font-black text-foreground tracking-tight">
             Role & Permission Management
           </h1>
-          <p className="text-xs text-muted-foreground">
-            Configure granular Create, Read, Update, and Delete permissions across all system
-            modules (ColosseumBackend, ColosseumClient, and ColosseumWeb).
-          </p>
         </div>
 
         {/* Global Action Buttons */}
@@ -703,14 +648,14 @@ export const RoleManagement: React.FC = () => {
           </div>
         </div>
 
-        {/* Search & Category Filter Toolbar */}
-        <div className="pt-2 border-t border-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+        {/* Search Toolbar */}
+        <div className="pt-2 border-t border-border flex items-center justify-between gap-3">
           {/* Search Box */}
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="Filter modules by name, description, category, or scope..."
+              placeholder="Filter modules by name..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 pr-8 h-9 text-xs bg-muted/30 border-border"
@@ -724,30 +669,6 @@ export const RoleManagement: React.FC = () => {
                 <X className="size-3.5" />
               </button>
             )}
-          </div>
-
-          {/* Category Filter Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-            <SlidersHorizontal className="size-3.5 text-muted-foreground shrink-0 hidden sm:inline-block" />
-            {categories.map((cat) => {
-              const isSelected = selectedCategory === cat;
-              const count =
-                cat === 'All' ? MODULES.length : MODULES.filter((m) => m.category === cat).length;
-              return (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
-                    isSelected
-                      ? 'bg-primary text-primary-foreground shadow-xs'
-                      : 'bg-muted/50 text-muted-foreground hover:text-foreground hover:bg-muted'
-                  }`}
-                >
-                  {cat} <span className="opacity-70 text-[10px]">({count})</span>
-                </button>
-              );
-            })}
           </div>
         </div>
       </div>
@@ -796,16 +717,13 @@ export const RoleManagement: React.FC = () => {
               {filteredModules.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-12 text-center text-muted-foreground">
-                    <p className="text-sm">No modules matched your search or category filter.</p>
+                    <p className="text-sm">No modules matched your search filter.</p>
                     <button
                       type="button"
-                      onClick={() => {
-                        setSearchQuery('');
-                        setSelectedCategory('All');
-                      }}
+                      onClick={() => setSearchQuery('')}
                       className="mt-2 text-xs text-primary font-semibold underline cursor-pointer"
                     >
-                      Clear all filters
+                      Clear search
                     </button>
                   </td>
                 </tr>
@@ -820,34 +738,23 @@ export const RoleManagement: React.FC = () => {
 
                   return (
                     <tr key={module.id} className="hover:bg-muted/30 transition-colors group">
-                      {/* Module Name & Details */}
+                      {/* Module Name */}
                       <td className="py-4 px-6">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => handleToggleRow(module.id)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                handleToggleRow(module.id);
-                              }
-                            }}
-                            className="font-bold text-foreground text-sm hover:text-primary transition-colors cursor-pointer"
-                            title="Click to toggle all permissions for this module"
-                          >
-                            {module.name}
-                          </span>
-                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground">
-                            {module.category}
-                          </span>
-                          <div className="flex items-center gap-1">
-                            {module.scope.map(renderScopeBadge)}
-                          </div>
-                        </div>
-                        <div className="text-xs text-muted-foreground line-clamp-1 mt-1">
-                          {module.description}
-                        </div>
+                        <span
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => handleToggleRow(module.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              handleToggleRow(module.id);
+                            }
+                          }}
+                          className="font-bold text-foreground text-sm hover:text-primary transition-colors cursor-pointer"
+                          title="Click to toggle all permissions for this module"
+                        >
+                          {module.name}
+                        </span>
                       </td>
 
                       {/* CRUD Toggle Switches */}

@@ -6,6 +6,7 @@ export const ENDPOINTS = {
     PROFILE: '/auth/profile',
     CHANGE_PASSWORD: '/auth/change-password',
     USERS: '/auth/users',
+    UPDATE_ROLE: (id: string) => `/auth/users/${id}/role`,
   },
   LANDMARKS: {
     LIST: '/landmarks',

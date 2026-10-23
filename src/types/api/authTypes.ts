@@ -45,3 +45,14 @@ export interface AuthResponse {
   accessToken?: string;
   token?: string;
 }
+
+export interface ManagedUser {
+  id: string;
+  name: string;
+  email: string;
+  role: 'SUPER_ADMIN' | 'ADMIN' | 'MODERATOR' | 'USER' | string;
+  assignedFloorIds?: string[];
+  is_active?: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
