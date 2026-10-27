@@ -122,7 +122,24 @@ export const authApi = {
     const cached = localStorage.getItem('colosseum_managed_users');
     if (cached) {
       try {
-        return JSON.parse(cached);
+        let usersList: ManagedUser[] = JSON.parse(cached);
+        let changed = false;
+        usersList = usersList.map((u) => {
+          if (
+            (u.email?.toLowerCase() === 'admin@colosseumtour.it' ||
+              u.id === 'usr_admin' ||
+              u.name === 'Primary Administrator') &&
+            u.role !== 'SUPER_ADMIN'
+          ) {
+            changed = true;
+            return { ...u, role: 'SUPER_ADMIN' };
+          }
+          return u;
+        });
+        if (changed) {
+          localStorage.setItem('colosseum_managed_users', JSON.stringify(usersList));
+        }
+        return usersList;
       } catch {
         // ignore
       }

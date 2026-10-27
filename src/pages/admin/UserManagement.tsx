@@ -148,6 +148,20 @@ export const UserManagement: React.FC = () => {
   const handleRoleChange = async (user: ManagedUser, newRole: SystemRole) => {
     if (user.role.toUpperCase() === newRole) return;
 
+    // Safeguard: Prevent accidental demotion of the primary administrator
+    if (
+      (user.id === 'usr_admin' ||
+        user.email.toLowerCase() === 'admin@colosseumtour.it' ||
+        user.name === 'Primary Administrator') &&
+      newRole !== 'SUPER_ADMIN'
+    ) {
+      showError(
+        'Action Restricted',
+        'The Primary Administrator account cannot be demoted from Super Admin.'
+      );
+      return;
+    }
+
     try {
       setUpdatingUserId(user.id);
       await authApi.updateUserRole(user.id, newRole);
@@ -209,6 +223,20 @@ export const UserManagement: React.FC = () => {
     if (!selectedUser) return;
     if (!modalForm.name.trim() || !modalForm.email.trim()) {
       showError('Validation Error', 'Name and email are required.');
+      return;
+    }
+
+    // Safeguard: Prevent accidental demotion of the primary administrator
+    if (
+      (selectedUser.id === 'usr_admin' ||
+        selectedUser.email.toLowerCase() === 'admin@colosseumtour.it' ||
+        selectedUser.name === 'Primary Administrator') &&
+      modalForm.role !== 'SUPER_ADMIN'
+    ) {
+      showError(
+        'Action Restricted',
+        'The Primary Administrator account cannot be demoted from Super Admin.'
+      );
       return;
     }
 
