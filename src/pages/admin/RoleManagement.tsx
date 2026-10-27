@@ -377,14 +377,16 @@ export const RoleManagement: React.FC = () => {
         };
       });
 
-      // Update current user session if roles match
+      // Update current user session rback only if the logged in user's actual role matches selectedRole
       const userRaw = localStorage.getItem('colosseum_user_payload');
       if (userRaw) {
         const currentUser = JSON.parse(userRaw);
-        currentUser.rback = formattedRback;
-        currentUser.userRole = selectedRole;
-        localStorage.setItem('colosseum_user_payload', JSON.stringify(currentUser));
-        window.dispatchEvent(new Event('rbac-updated'));
+        const actualRole = (currentUser.userRole || currentUser.role || '').toLowerCase();
+        if (actualRole === selectedRole.toLowerCase()) {
+          currentUser.rback = formattedRback;
+          localStorage.setItem('colosseum_user_payload', JSON.stringify(currentUser));
+          window.dispatchEvent(new Event('rbac-updated'));
+        }
       }
     } catch {
       // ignore
@@ -395,49 +397,8 @@ export const RoleManagement: React.FC = () => {
     );
   };
 
-  const handlePreviewAsRole = (roleId: RoleId) => {
+  const handleSelectRole = (roleId: RoleId) => {
     setSelectedRole(roleId);
-    try {
-      const formattedRback = MODULES.map((mod) => {
-        const perm = permissions[roleId]?.[mod.id] || {
-          create: false,
-          read: false,
-          update: false,
-          delete: false,
-        };
-        return {
-          'module name': mod.name,
-          Create: perm.create ? ('true' as const) : ('false' as const),
-          Read: perm.read ? ('true' as const) : ('false' as const),
-          Update: perm.update ? ('true' as const) : ('false' as const),
-          Delete: perm.delete ? ('true' as const) : ('false' as const),
-        };
-      });
-
-      const userRaw = localStorage.getItem('colosseum_user_payload');
-      const currentUser = userRaw
-        ? JSON.parse(userRaw)
-        : {
-            id: 'demo_user',
-            name: 'Demo Admin',
-            email: 'admin@colosseumtour.it',
-            role: roleId.toUpperCase(),
-          };
-
-      currentUser.role = roleId.toUpperCase();
-      currentUser.userRole = roleId;
-      currentUser.rback = formattedRback;
-      localStorage.setItem('colosseum_user_payload', JSON.stringify(currentUser));
-      window.dispatchEvent(new Event('rbac-updated'));
-
-      const roleObj = ROLES.find((r) => r.id === roleId);
-      showInfo(
-        'Switched Role to ' + roleObj?.name,
-        `Sidebar updated: Showing modules where ${roleObj?.name} has modification rights.`
-      );
-    } catch {
-      // ignore
-    }
   };
 
   const handleReset = () => {
@@ -571,7 +532,7 @@ export const RoleManagement: React.FC = () => {
                   return (
                     <DropdownMenuItem
                       key={role.id}
-                      onClick={() => handlePreviewAsRole(role.id)}
+                      onClick={() => handleSelectRole(role.id)}
                       className={`flex items-start gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${
                         isSelected
                           ? 'bg-secondary text-secondary-foreground font-semibold'
