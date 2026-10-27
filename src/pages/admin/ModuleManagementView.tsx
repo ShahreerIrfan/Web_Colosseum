@@ -803,7 +803,8 @@ export const ModuleManagementView: React.FC = () => {
                         variant="outline"
                         size="sm"
                         disabled={!canUpdate}
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.currentTarget.blur();
                           setEditingLandmark(lm);
                           setIsCreateLandmarkOpen(true);
                         }}
@@ -815,7 +816,8 @@ export const ModuleManagementView: React.FC = () => {
                         variant="outline"
                         size="sm"
                         disabled={!canDelete}
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.currentTarget.blur();
                           setLandmarkToDelete(lm);
                           setIsDeleteModalOpen(true);
                         }}
