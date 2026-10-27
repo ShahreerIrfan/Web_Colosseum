@@ -43,7 +43,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
   onCreated,
   onUpdated,
 }) => {
-  const { showSuccess, showError, showInfo } = useToast();
+  const { showSuccess, showError } = useToast();
   const publishId = useId();
   const isEditMode = Boolean(landmarkToEdit);
 
@@ -59,12 +59,23 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
   );
   const [widthMeters, setWidthMeters] = useState<number | string>('');
   const [heightMeters, setHeightMeters] = useState<number | string>('');
-  const [assetFileName, setAssetFileName] = useState('');
-  const [assetUrl, setAssetUrl] = useState('');
-  const [cloudinaryPublicId, setCloudinaryPublicId] = useState('');
-  const [isUploadingAsset, setIsUploadingAsset] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  // 1. Landmark Logo (Map Overlay Badge e.g. from assets/logo)
+  const [logoFileName, setLogoFileName] = useState('');
+  const [logoUrl, setLogoUrl] = useState('');
+  const [logoPublicId, setLogoPublicId] = useState('');
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [logoProgress, setLogoProgress] = useState<number | null>(null);
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null);
+
+  // 2. Tourist Guide Card Image (Cover Thumbnail)
+  const [cardFileName, setCardFileName] = useState('');
+  const [cardUrl, setCardUrl] = useState('');
+  const [cardPublicId, setCardPublicId] = useState('');
+  const [isUploadingCard, setIsUploadingCard] = useState(false);
+  const [cardProgress, setCardProgress] = useState<number | null>(null);
+  const [cardPreviewUrl, setCardPreviewUrl] = useState<string | null>(null);
+
   const [category, setCategory] = useState('Monument');
   const [colorHex, setColorHex] = useState('#DD1110');
   const [iconSymbol, setIconSymbol] = useState('🏛️');
@@ -121,55 +132,116 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
     setCode(slugify(name));
   };
 
-  const handleFileUpload = async (file: File) => {
+  // Handle Logo (Map Overlay Badge) Upload
+  const handleLogoUpload = async (file: File) => {
     const isValidExtension = file.name.match(/\.(svg|png|jpe?g|webp)$/i);
     if (!isValidExtension) {
-      showError('Unsupported File', 'Please select an SVG floor plan or PNG/JPG overlay file.');
+      showError('Unsupported File', 'Please select a PNG, SVG, or JPG landmark logo badge.');
       return;
     }
 
     const localPreview = URL.createObjectURL(file);
-    setPreviewUrl(localPreview);
-    setAssetFileName(file.name);
+    setLogoPreviewUrl(localPreview);
+    setLogoFileName(file.name);
 
-    // Dynamic folder name derived from current code or name
     const targetSlug = (code.trim() || slugify(name) || 'temp_monument').replace(/^_+|_+$/g, '');
 
     try {
-      setIsUploadingAsset(true);
-      setUploadProgress(0);
+      setIsUploadingLogo(true);
+      setLogoProgress(0);
 
       const uploadRes = await uploadApi.uploadFile(file, {
         section: 'landmarks',
         slug: targetSlug,
-        subSection: 'overlays',
-        onProgress: (pct) => setUploadProgress(pct),
+        subSection: 'logos',
+        onProgress: (pct) => setLogoProgress(pct),
       });
 
-      setAssetUrl(uploadRes.secureUrl || uploadRes.url);
-      setCloudinaryPublicId(uploadRes.publicId);
-      showSuccess('Uploaded to Cloudinary', `Stored in ${uploadRes.folder}`);
+      setLogoUrl(uploadRes.secureUrl || uploadRes.url);
+      setLogoPublicId(uploadRes.publicId);
+      showSuccess('Logo Uploaded to Cloudinary', `Stored in ${uploadRes.folder}`);
     } catch (err: unknown) {
-      console.warn('Upload notice:', err);
+      console.error('Logo upload error:', err);
       const axiosErr = err as { response?: { data?: { message?: string } }; message?: string };
-      const msg = axiosErr?.response?.data?.message || axiosErr.message || 'File selected locally.';
-      showInfo('Upload Status', msg);
+      const msg =
+        axiosErr?.response?.data?.message ||
+        axiosErr.message ||
+        'Failed to upload logo to Cloudinary.';
+      showError('Logo Upload Failed', msg);
     } finally {
-      setIsUploadingAsset(false);
-      setUploadProgress(null);
+      setIsUploadingLogo(false);
+      setLogoProgress(null);
     }
   };
 
-  const handleRemoveFile = (e: React.MouseEvent) => {
+  const handleRemoveLogo = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setAssetFileName('');
-    setAssetUrl('');
-    setCloudinaryPublicId('');
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(null);
+    setLogoFileName('');
+    setLogoUrl('');
+    setLogoPublicId('');
+    setLogoPreviewUrl((prev) => {
+      if (prev?.startsWith('blob:')) {
+        URL.revokeObjectURL(prev);
+      }
+      return null;
+    });
+  };
+
+  // Handle Card (Tourist Guide Thumbnail) Upload
+  const handleCardUpload = async (file: File) => {
+    const isValidExtension = file.name.match(/\.(png|jpe?g|webp)$/i);
+    if (!isValidExtension) {
+      showError('Unsupported File', 'Please select a PNG, JPG, or WebP cover image for the card.');
+      return;
     }
+
+    const localPreview = URL.createObjectURL(file);
+    setCardPreviewUrl(localPreview);
+    setCardFileName(file.name);
+
+    const targetSlug = (code.trim() || slugify(name) || 'temp_monument').replace(/^_+|_+$/g, '');
+
+    try {
+      setIsUploadingCard(true);
+      setCardProgress(0);
+
+      const uploadRes = await uploadApi.uploadFile(file, {
+        section: 'landmarks',
+        slug: targetSlug,
+        subSection: 'cards',
+        onProgress: (pct) => setCardProgress(pct),
+      });
+
+      setCardUrl(uploadRes.secureUrl || uploadRes.url);
+      setCardPublicId(uploadRes.publicId);
+      showSuccess('Card Image Uploaded', `Stored in ${uploadRes.folder}`);
+    } catch (err: unknown) {
+      console.error('Card upload error:', err);
+      const axiosErr = err as { response?: { data?: { message?: string } }; message?: string };
+      const msg =
+        axiosErr?.response?.data?.message ||
+        axiosErr.message ||
+        'Failed to upload card image to Cloudinary.';
+      showError('Card Upload Failed', msg);
+    } finally {
+      setIsUploadingCard(false);
+      setCardProgress(null);
+    }
+  };
+
+  const handleRemoveCard = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCardFileName('');
+    setCardUrl('');
+    setCardPublicId('');
+    setCardPreviewUrl((prev) => {
+      if (prev?.startsWith('blob:')) {
+        URL.revokeObjectURL(prev);
+      }
+      return null;
+    });
   };
 
   const handleResetForm = useCallback(() => {
@@ -181,13 +253,24 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
     setLongitude(COLOSSEUM_DEFAULT_COORDS.lng.toFixed(6));
     setWidthMeters('');
     setHeightMeters('');
-    setAssetFileName('');
-    setAssetUrl('');
-    setCloudinaryPublicId('');
-    if (previewUrl?.startsWith('blob:')) {
-      URL.revokeObjectURL(previewUrl);
-    }
-    setPreviewUrl(null);
+    setLogoFileName('');
+    setLogoUrl('');
+    setLogoPublicId('');
+    setLogoPreviewUrl((prev) => {
+      if (prev?.startsWith('blob:')) {
+        URL.revokeObjectURL(prev);
+      }
+      return null;
+    });
+    setCardFileName('');
+    setCardUrl('');
+    setCardPublicId('');
+    setCardPreviewUrl((prev) => {
+      if (prev?.startsWith('blob:')) {
+        URL.revokeObjectURL(prev);
+      }
+      return null;
+    });
     setCategory('Monument');
     setColorHex('#DD1110');
     setIconSymbol('🏛️');
@@ -199,7 +282,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
     setZIndex(1);
     setMinZoom(13.0);
     setMaxZoom(21.0);
-  }, [previewUrl]);
+  }, []);
 
   // Synchronize dialog state with landmarkToEdit when opened
   useEffect(() => {
@@ -229,12 +312,22 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
             ? String(landmarkToEdit.dimensions.heightMeters)
             : ''
         );
-        setAssetUrl(landmarkToEdit.assetPath || '');
-        setAssetFileName(
+        // Logo Map Overlay state
+        setLogoUrl(landmarkToEdit.assetPath || '');
+        setLogoFileName(
           landmarkToEdit.assetPath ? landmarkToEdit.assetPath.split('/').pop() || '' : ''
         );
-        setCloudinaryPublicId(landmarkToEdit.cloudinaryPublicId || '');
-        setPreviewUrl(landmarkToEdit.assetPath || null);
+        setLogoPublicId(landmarkToEdit.cloudinaryPublicId || '');
+        setLogoPreviewUrl(landmarkToEdit.assetPath || null);
+
+        // Card Thumbnail Image state
+        setCardUrl(landmarkToEdit.thumbnailUrl || '');
+        setCardFileName(
+          landmarkToEdit.thumbnailUrl ? landmarkToEdit.thumbnailUrl.split('/').pop() || '' : ''
+        );
+        setCardPublicId(landmarkToEdit.thumbnailPublicId || '');
+        setCardPreviewUrl(landmarkToEdit.thumbnailUrl || null);
+
         setRotationDegrees(landmarkToEdit.calibration?.rotationDegrees ?? 0.0);
         setAnchorX(landmarkToEdit.calibration?.anchorX ?? 0.5);
         setAnchorY(landmarkToEdit.calibration?.anchorY ?? 0.5);
@@ -296,8 +389,10 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
       code: finalCode,
       name: name.trim(),
       description: description.trim(),
-      assetPath: assetUrl || assetFileName || 'assets/floor_map/floor_level_1.svg',
-      cloudinaryPublicId: cloudinaryPublicId || undefined,
+      assetPath: logoUrl || logoFileName || 'assets/floor_map/floor_level_1.svg',
+      cloudinaryPublicId: logoPublicId || undefined,
+      thumbnailUrl: cardUrl || undefined,
+      thumbnailPublicId: cardPublicId || undefined,
       center: {
         latitude: latNum,
         longitude: lngNum,
@@ -341,12 +436,11 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
       handleResetForm();
       onOpenChange(false);
     } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { message?: string } }; message?: string };
       const msg =
-        err instanceof Error
-          ? err.message
-          : isEditMode
-            ? 'Unable to update landmark.'
-            : 'Unable to register landmark.';
+        axiosErr?.response?.data?.message ||
+        axiosErr?.message ||
+        (isEditMode ? 'Unable to update landmark.' : 'Unable to register landmark.');
       showError(isEditMode ? 'Update Failed' : 'Creation Failed', msg);
     } finally {
       setIsSubmitting(false);
@@ -504,34 +598,40 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
               </div>
             </div>
 
-            {/* Right Column: Asset, Dimensions, Styling & Calibration */}
+            {/* Right Column: Logo, Card Image, Dimensions, Styling & Calibration */}
             <div className="space-y-6">
-              {/* 03 Map Overlay & Dimensions */}
+              {/* 03 Landmark Logo (Map Overlay Badge) */}
               <div className="space-y-3">
-                <div className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-wider">
-                  <span>03 Map Overlay & Dimensions</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-wider">
+                    <span>03</span>
+                    <span>Landmark Logo (Map Badge)</span>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground font-mono">
+                    assets/logo overlay
+                  </span>
                 </div>
 
                 <div>
-                  {isUploadingAsset ? (
+                  {isUploadingLogo ? (
                     <div className="border-2 border-dashed border-primary/50 rounded-xl p-5 text-center bg-primary/5 flex flex-col items-center justify-center space-y-2">
                       <Loader2 className="size-6 text-primary animate-spin" />
                       <p className="text-xs font-medium text-foreground">
-                        Uploading to Cloudinary...{' '}
-                        {uploadProgress !== null ? `${uploadProgress}%` : ''}
+                        Uploading logo to Cloudinary...{' '}
+                        {logoProgress !== null ? `${logoProgress}%` : ''}
                       </p>
                       <p className="text-[10px] text-muted-foreground font-mono truncate max-w-xs">
-                        colosseum/landmarks/{code.trim() || 'monument'}/overlays
+                        colosseum/landmarks/{code.trim() || 'monument'}/logos
                       </p>
                     </div>
-                  ) : assetFileName ? (
+                  ) : logoFileName ? (
                     <div className="border border-border rounded-xl p-3 bg-card flex items-center justify-between gap-3 shadow-xs">
                       <div className="flex items-center gap-3 min-w-0">
-                        {previewUrl ? (
+                        {logoPreviewUrl ? (
                           <img
-                            src={previewUrl}
-                            alt="Preview"
-                            className="size-12 rounded-lg object-cover border border-border bg-muted/40 shrink-0"
+                            src={logoPreviewUrl}
+                            alt="Logo Preview"
+                            className="size-12 rounded-lg object-contain border border-border bg-muted/40 p-1 shrink-0"
                           />
                         ) : (
                           <div className="size-12 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
@@ -540,10 +640,10 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                         )}
                         <div className="min-w-0">
                           <p className="text-xs font-medium text-foreground truncate">
-                            {assetFileName}
+                            {logoFileName}
                           </p>
                           <div className="flex items-center gap-1.5 mt-0.5">
-                            {assetUrl ? (
+                            {logoUrl ? (
                               <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium font-mono">
                                 <CheckCircle2 className="size-3" /> Cloudinary CDN
                               </span>
@@ -565,15 +665,15 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                             className="hidden"
                             onChange={(e) => {
                               const file = e.target.files?.[0];
-                              if (file) handleFileUpload(file);
+                              if (file) handleLogoUpload(file);
                             }}
                           />
                         </label>
                         <button
                           type="button"
-                          onClick={handleRemoveFile}
+                          onClick={handleRemoveLogo}
                           className="p-1 text-muted-foreground hover:text-destructive rounded-md transition-colors cursor-pointer"
-                          title="Remove file"
+                          title="Remove logo"
                         >
                           <Trash2 className="size-3.5" />
                         </button>
@@ -585,17 +685,17 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                       onDrop={(e) => {
                         e.preventDefault();
                         const file = e.dataTransfer.files?.[0];
-                        if (file) handleFileUpload(file);
+                        if (file) handleLogoUpload(file);
                       }}
                       className="border-2 border-dashed border-border hover:border-primary/60 rounded-xl p-5 text-center bg-muted/20 transition-colors flex flex-col items-center justify-center cursor-pointer"
                     >
                       <UploadCloud className="size-7 mb-1.5 text-muted-foreground" />
                       <p className="text-xs text-foreground font-medium">
-                        Drop SVG or Image file here, or{' '}
+                        Drop Landmark Logo here, or{' '}
                         <span className="text-primary underline">browse</span>
                       </p>
                       <p className="text-[11px] text-muted-foreground mt-1">
-                        Supports SVG floor plan or PNG/JPG overlay (Uploaded to Cloudinary)
+                        Supports transparent PNG or SVG badge (anchored on map)
                       </p>
                       <input
                         type="file"
@@ -603,7 +703,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                         className="hidden"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
-                          if (file) handleFileUpload(file);
+                          if (file) handleLogoUpload(file);
                         }}
                       />
                     </label>
@@ -644,10 +744,122 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                 </div>
               </div>
 
-              {/* 04 Pin & Marker Styling */}
+              {/* 04 Landmark Card Image */}
+              <div className="space-y-3 pt-4 border-t border-border">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-wider">
+                    <span>04</span>
+                    <span>Landmark Card Image</span>
+                  </div>
+                  <span className="text-[10px] text-muted-foreground font-mono">
+                    Tourist Guide Card
+                  </span>
+                </div>
+
+                <div>
+                  {isUploadingCard ? (
+                    <div className="border-2 border-dashed border-primary/50 rounded-xl p-5 text-center bg-primary/5 flex flex-col items-center justify-center space-y-2">
+                      <Loader2 className="size-6 text-primary animate-spin" />
+                      <p className="text-xs font-medium text-foreground">
+                        Uploading card image to Cloudinary...{' '}
+                        {cardProgress !== null ? `${cardProgress}%` : ''}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground font-mono truncate max-w-xs">
+                        colosseum/landmarks/{code.trim() || 'monument'}/cards
+                      </p>
+                    </div>
+                  ) : cardFileName ? (
+                    <div className="border border-border rounded-xl p-3 bg-card flex items-center justify-between gap-3 shadow-xs">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {cardPreviewUrl ? (
+                          <img
+                            src={cardPreviewUrl}
+                            alt="Card Preview"
+                            className="size-12 rounded-lg object-cover border border-border bg-muted/40 shrink-0"
+                          />
+                        ) : (
+                          <div className="size-12 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                            <ImageIcon className="size-6 text-primary" />
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-foreground truncate">
+                            {cardFileName}
+                          </p>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            {cardUrl ? (
+                              <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-medium font-mono">
+                                <CheckCircle2 className="size-3" /> Cloudinary CDN
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-muted-foreground font-mono">
+                                Selected locally
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        <label className="text-xs font-medium text-primary hover:underline cursor-pointer px-2 py-1">
+                          Change
+                          <input
+                            type="file"
+                            accept=".png,.jpg,.jpeg,.webp"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleCardUpload(file);
+                            }}
+                          />
+                        </label>
+                        <button
+                          type="button"
+                          onClick={handleRemoveCard}
+                          className="p-1 text-muted-foreground hover:text-destructive rounded-md transition-colors cursor-pointer"
+                          title="Remove card image"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <label
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const file = e.dataTransfer.files?.[0];
+                        if (file) handleCardUpload(file);
+                      }}
+                      className="border-2 border-dashed border-border hover:border-primary/60 rounded-xl p-5 text-center bg-muted/20 transition-colors flex flex-col items-center justify-center cursor-pointer"
+                    >
+                      <UploadCloud className="size-7 mb-1.5 text-muted-foreground" />
+                      <p className="text-xs text-foreground font-medium">
+                        Drop Card cover image here, or{' '}
+                        <span className="text-primary underline">browse</span>
+                      </p>
+                      <p className="text-[11px] text-muted-foreground mt-1">
+                        Supports PNG/JPG photo for tourist guide cards and list previews
+                      </p>
+                      <input
+                        type="file"
+                        accept=".png,.jpg,.jpeg,.webp"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleCardUpload(file);
+                        }}
+                      />
+                    </label>
+                  )}
+                </div>
+              </div>
+
+              {/* 05 Pin & Marker Styling */}
               <div className="space-y-3 pt-4 border-t border-border">
                 <div className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-wider">
-                  <span>04 Pin & Marker Styling</span>
+                  <span>05</span>
+                  <span>Pin & Marker Styling</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -875,7 +1087,7 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
               </Button>
               <Button
                 type="submit"
-                disabled={isSubmitting || isUploadingAsset}
+                disabled={isSubmitting || isUploadingLogo || isUploadingCard}
                 size="sm"
                 className="bg-primary text-primary-foreground font-semibold gap-1.5 cursor-pointer shadow-sm disabled:opacity-50"
               >

@@ -429,6 +429,8 @@ export interface CreateLandmarkInput {
   description?: string;
   assetPath: string;
   cloudinaryPublicId?: string;
+  thumbnailUrl?: string;
+  thumbnailPublicId?: string;
   center: {
     latitude: number;
     longitude: number;
@@ -461,6 +463,7 @@ interface BackendLandmarkRaw {
   assetPath?: string;
   cloudinaryPublicId?: string;
   thumbnailUrl?: string;
+  thumbnailPublicId?: string;
   center?: { latitude: number; longitude: number };
   location?: { type: 'Point'; coordinates: [number, number] };
   widthMeters?: number;
@@ -526,6 +529,7 @@ const mapRawLandmark = (raw: BackendLandmarkRaw): Landmark => {
       raw.thumbnailUrl ||
       match?.thumbnailUrl ||
       'https://images.unsplash.com/photo-1552832230-c0197dd311b5?w=800&auto=format&fit=crop&q=80',
+    thumbnailPublicId: raw.thumbnailPublicId || match?.thumbnailPublicId || '',
     location: raw.location || {
       type: 'Point',
       coordinates: raw.center
@@ -727,8 +731,11 @@ export const landmarkApi = {
         name: payload.name,
         description: payload.description || '',
         assetPath: payload.assetPath || 'assets/floor_map/floor_level_1.svg',
+        cloudinaryPublicId: payload.cloudinaryPublicId || '',
         thumbnailUrl:
+          payload.thumbnailUrl ||
           'https://images.unsplash.com/photo-1552832230-c0197dd311b5?w=800&auto=format&fit=crop&q=80',
+        thumbnailPublicId: payload.thumbnailPublicId || '',
         location: {
           type: 'Point',
           coordinates: [payload.center.longitude, payload.center.latitude],
@@ -774,7 +781,8 @@ export const landmarkApi = {
         description: payload.description ?? existing?.description ?? '',
         assetPath: payload.assetPath ?? existing?.assetPath ?? '',
         cloudinaryPublicId: payload.cloudinaryPublicId ?? existing?.cloudinaryPublicId ?? '',
-        thumbnailUrl: existing?.thumbnailUrl || '',
+        thumbnailUrl: payload.thumbnailUrl ?? existing?.thumbnailUrl ?? '',
+        thumbnailPublicId: payload.thumbnailPublicId ?? existing?.thumbnailPublicId ?? '',
         location: payload.center
           ? {
               type: 'Point',

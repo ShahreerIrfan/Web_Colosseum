@@ -60,6 +60,7 @@ export interface Landmark {
   assetPath: string;
   cloudinaryPublicId?: string;
   thumbnailUrl: string;
+  thumbnailPublicId?: string;
   location: GeoLocation;
   dimensions: {
     widthMeters: number;
@@ -88,6 +89,7 @@ export interface LandmarkCard {
   romanEraName?: string;
   description: string;
   thumbnailUrl: string;
+  thumbnailPublicId?: string;
   levelCount: number;
   viewpointCount: number;
   estimatedTourDurationMinutes: number;
