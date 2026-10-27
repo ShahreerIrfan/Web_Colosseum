@@ -210,7 +210,7 @@ export const AppSidebar: React.FC = () => {
                   const isActive = location.pathname === item.url;
 
                   return (
-                    <SidebarMenuItem key={item.moduleName}>
+                    <SidebarMenuItem key={item.url}>
                       <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
                         <Link to={item.url}>
                           <item.icon className="size-4 shrink-0" />
