@@ -16,18 +16,12 @@ import type { UserPayload } from '@/types/api/authTypes';
 import { getUserPayload } from '@/utils/localStorageUtils';
 import { isModuleVisibleInSidebar } from '@/utils/rbacUtils';
 import {
-  Database,
   Eye,
-  Footprints,
   Globe,
-  Headphones,
   Landmark,
   Layers,
   LayoutDashboard,
   LogOut,
-  Navigation,
-  RefreshCw,
-  Route,
   ShieldCheck,
   UserCog,
   Lock,
@@ -74,46 +68,10 @@ const ALL_NAV_MODULES: NavModuleItem[] = [
     icon: Eye,
   },
   {
-    title: 'Audio Guides',
-    moduleName: 'Audio Guides & Narration',
-    url: '/admin/dashboard/audio',
-    icon: Headphones,
-  },
-  {
     title: 'Languages',
     moduleName: 'Languages & Localization',
     url: '/admin/dashboard/languages',
     icon: Globe,
-  },
-  {
-    title: 'Walking Itineraries',
-    moduleName: 'Walking Tour Itineraries',
-    url: '/admin/dashboard/itineraries',
-    icon: Footprints,
-  },
-  {
-    title: 'Pedestrian Routes',
-    moduleName: 'Pedestrian Street Routes',
-    url: '/admin/dashboard/pedestrian-routes',
-    icon: Route,
-  },
-  {
-    title: 'GPS Geofencing',
-    moduleName: 'GPS Geofencing & Tracking',
-    url: '/admin/dashboard/gps',
-    icon: Navigation,
-  },
-  {
-    title: 'Sync Manifests',
-    moduleName: 'Sync Bundles & Manifests',
-    url: '/admin/dashboard/sync',
-    icon: RefreshCw,
-  },
-  {
-    title: 'Mobile Cache',
-    moduleName: 'Mobile Client Offline Cache',
-    url: '/admin/dashboard/offline-storage',
-    icon: Database,
   },
   {
     title: 'Users',

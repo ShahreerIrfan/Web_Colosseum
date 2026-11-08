@@ -24,6 +24,9 @@ export const ENDPOINTS = {
   VIEWPOINTS: {
     LIST: '/viewpoints',
     GET_BY_ID: (id: string) => `/viewpoints/${id}`,
+    CREATE: '/viewpoints',
+    UPDATE: (id: string) => `/viewpoints/${id}`,
+    DELETE: (id: string) => `/viewpoints/${id}`,
   },
   AUDIO: {
     LIST: '/audio',
@@ -33,6 +36,13 @@ export const ENDPOINTS = {
     VALIDATE: '/tickets/validate',
     LIST: '/tickets',
     GET_BY_ID: (id: string) => `/tickets/${id}`,
+  },
+  FLOORS: {
+    LIST: '/sync/floors',
+    GET_BY_ID: (id: string) => `/sync/floors/${id}`,
+    CREATE: '/floors',
+    UPDATE: (id: string) => `/floors/${id}`,
+    DELETE: (id: string) => `/floors/${id}`,
   },
   SYNC: {
     MANIFEST: '/sync/manifest',

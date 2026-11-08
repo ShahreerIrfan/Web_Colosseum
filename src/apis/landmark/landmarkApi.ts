@@ -706,7 +706,9 @@ export const landmarkApi = {
       const response = await api.get<BaseSuccessResponse<VisitorFaqItem[]>>(
         ENDPOINTS.LANDMARKS.FAQS
       );
-      return response.data.data;
+      const data =
+        response.data.data || (response.data as unknown as { payload: VisitorFaqItem[] }).payload;
+      return Array.isArray(data) ? data : MOCK_FAQS;
     } catch {
       return MOCK_FAQS;
     }

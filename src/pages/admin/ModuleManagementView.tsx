@@ -1,5 +1,9 @@
+import { floorApi } from '@/apis/floor/floorApi';
 import { landmarkApi } from '@/apis/landmark/landmarkApi';
+import { viewpointApi } from '@/apis/viewpoint/viewpointApi';
+import { CreateFloorDialog } from '@/components/admin/CreateFloorDialog';
 import { CreateLandmarkDialog } from '@/components/admin/CreateLandmarkDialog';
+import { CreateViewpointDialog } from '@/components/admin/CreateViewpointDialog';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -11,26 +15,25 @@ import {
 } from '@/components/ui/dialog';
 import useToast from '@/hooks/component/useToast';
 import type { UserPayload } from '@/types/api/authTypes';
+import type { FloorModel } from '@/types/api/floorTypes';
 import type { Landmark as LandmarkModel } from '@/types/api/landmarkTypes';
+import type { ViewpointModel } from '@/types/api/viewpointTypes';
 import { getUserPayload } from '@/utils/localStorageUtils';
 import { getEffectiveRbac, isModuleVisibleInSidebar } from '@/utils/rbacUtils';
 import {
   AlertTriangle,
   CheckCircle2,
+  ChevronDown,
   Download,
   Eye,
-  Footprints,
   Globe,
-  Headphones,
   Landmark,
   Layers,
   Loader2,
   MapPin,
   Maximize2,
-  Navigation,
   Plus,
   RefreshCw,
-  Route,
   Search,
   Settings,
   ShieldCheck,
@@ -39,7 +42,7 @@ import {
   Users,
   XCircle,
 } from 'lucide-react';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useParams } from 'react-router-dom';
 
 const MODULE_DEFINITIONS: Record<
@@ -125,28 +128,6 @@ const MODULE_DEFINITIONS: Record<
       },
     ],
   },
-  audio: {
-    name: 'Audio Guides & Narration',
-    description:
-      'Studio narration audio tracks, multi-language acoustic guides, duration metadata, and streaming assets',
-    category: 'Media & Localization',
-    singular: 'Audio Track',
-    icon: Headphones,
-    sampleData: [
-      {
-        id: 'aud_gladiators_en',
-        title: 'Gladiatorial Battles of the Arena (English)',
-        subtitle: 'Duration: 3m 45s • High-Definition Studio Audio MP3',
-        tag: 'Language: EN',
-      },
-      {
-        id: 'aud_gladiators_it',
-        title: 'Battaglie dei Gladiatori (Italiano)',
-        subtitle: 'Duration: 3m 50s • Studio Narration IT',
-        tag: 'Language: IT',
-      },
-    ],
-  },
   languages: {
     name: 'Languages & Localization',
     description:
@@ -166,92 +147,6 @@ const MODULE_DEFINITIONS: Record<
         title: 'Italiano (Italia)',
         subtitle: 'Code: it • 100% Translations Complete',
         tag: 'Native Park Locale',
-      },
-    ],
-  },
-  itineraries: {
-    name: 'Walking Tour Itineraries',
-    description:
-      'Curated visitor pathways, sequential POI waypoint segments, walking distance, and pacing times',
-    category: 'Navigation & Wayfinding',
-    singular: 'Itinerary Pathway',
-    icon: Footprints,
-    sampleData: [
-      {
-        id: 'itin_highlights_45',
-        title: 'Colosseum Express Tour (45 Minutes)',
-        subtitle: '8 Viewpoints • 650m Walking Distance',
-        tag: 'Popular Route',
-      },
-      {
-        id: 'itin_full_underground',
-        title: 'Deep Hypogeum & Top Tiers Comprehensive',
-        subtitle: '16 Viewpoints • 1,200m Walking Distance',
-        tag: 'Full Access Only',
-      },
-    ],
-  },
-  'pedestrian-routes': {
-    name: 'Pedestrian Street Routes',
-    description:
-      'Turn-by-turn outdoor street routing between monuments, road graph geometry, and connectivity',
-    category: 'Navigation & Wayfinding',
-    singular: 'Street Route',
-    icon: Route,
-    sampleData: [
-      {
-        id: 'route_col_to_forum',
-        title: 'Colosseum to Roman Forum Pathway',
-        subtitle: 'Distance: 320m • Paved Pedestrian Walkway',
-        tag: 'Outdoor Street',
-      },
-    ],
-  },
-  gps: {
-    name: 'GPS Geofencing & Tracking',
-    description:
-      'Real-time visitor GPS positioning, magnetometer compass alignment, and proximity boundary triggers',
-    category: 'Navigation & Wayfinding',
-    singular: 'Geofence Rule',
-    icon: Navigation,
-    sampleData: [
-      {
-        id: 'geo_arena_perimeter',
-        title: 'Arena Entry Proximity Trigger',
-        subtitle: 'Trigger Radius: 4.5m • GPS Boundary Mesh',
-        tag: 'Proximity: 4.5m',
-      },
-    ],
-  },
-  sync: {
-    name: 'Sync Bundles & Manifests',
-    description:
-      'Offline package distribution, SHA-256 integrity hashes, delta sync manifests, and bundle releases',
-    category: 'Distribution & Offline',
-    singular: 'Sync Manifest',
-    icon: RefreshCw,
-    sampleData: [
-      {
-        id: 'pkg_v1_0_0',
-        title: 'Master Offline Package Release 1.0.0',
-        subtitle: 'SHA-256: e8b941...c82a • 14.8 MB Asset Bundle',
-        tag: 'Current Active',
-      },
-    ],
-  },
-  'offline-storage': {
-    name: 'Mobile Client Offline Cache',
-    description:
-      'Local client SQLite/JSON storage, media assets caching, and offline tour validation for zero-connectivity visits',
-    category: 'Distribution & Offline',
-    singular: 'Cache Store',
-    icon: RefreshCw,
-    sampleData: [
-      {
-        id: 'cache_vector_store',
-        title: 'Vector Map Tiles SQLite Cache',
-        subtitle: 'Local Storage Allocation: 24.2 MB',
-        tag: 'Offline Verified',
       },
     ],
   },
@@ -352,6 +247,30 @@ export const ModuleManagementView: React.FC = () => {
   const [isLoadingLandmarks, setIsLoadingLandmarks] = useState(false);
   const [landmarkSearch, setLandmarkSearch] = useState('');
 
+  // Floors State
+  const [isCreateFloorOpen, setIsCreateFloorOpen] = useState(false);
+  const [editingFloor, setEditingFloor] = useState<FloorModel | null>(null);
+  const [floorToDelete, setFloorToDelete] = useState<FloorModel | null>(null);
+  const [isDeleteFloorModalOpen, setIsDeleteFloorModalOpen] = useState(false);
+  const [isDeletingFloor, setIsDeletingFloor] = useState(false);
+  const [floors, setFloors] = useState<FloorModel[]>([]);
+  const [isLoadingFloors, setIsLoadingFloors] = useState(false);
+  const [floorSearch, setFloorSearch] = useState('');
+  const [collapsedLandmarks, setCollapsedLandmarks] = useState<Record<string, boolean>>({});
+  const [targetLandmarkForNewFloor, setTargetLandmarkForNewFloor] = useState<string | undefined>(
+    undefined
+  );
+
+  // Viewpoints State
+  const [isCreateViewpointOpen, setIsCreateViewpointOpen] = useState(false);
+  const [editingViewpoint, setEditingViewpoint] = useState<ViewpointModel | null>(null);
+  const [viewpointToDelete, setViewpointToDelete] = useState<ViewpointModel | null>(null);
+  const [isDeleteViewpointModalOpen, setIsDeleteViewpointModalOpen] = useState(false);
+  const [isDeletingViewpoint, setIsDeletingViewpoint] = useState(false);
+  const [viewpoints, setViewpoints] = useState<ViewpointModel[]>([]);
+  const [isLoadingViewpoints, setIsLoadingViewpoints] = useState(false);
+  const [viewpointSearch, setViewpointSearch] = useState('');
+
   const user = useMemo<UserPayload | null>(() => {
     try {
       return getUserPayload();
@@ -362,7 +281,7 @@ export const ModuleManagementView: React.FC = () => {
 
   const moduleDef = MODULE_DEFINITIONS[moduleKey];
 
-  // Fetch real landmarks when viewing landmarks module
+  // Fetch real landmarks or floors when viewing respective modules
   useEffect(() => {
     if (moduleKey === 'landmarks') {
       setIsLoadingLandmarks(true);
@@ -377,8 +296,161 @@ export const ModuleManagementView: React.FC = () => {
         .finally(() => {
           setIsLoadingLandmarks(false);
         });
+    } else if (moduleKey === 'floors') {
+      setIsLoadingFloors(true);
+      // Fetch landmarks so we can display their names, logos, and group floors cleanly
+      landmarkApi
+        .getAll()
+        .then((lms) => {
+          setLandmarks(lms);
+        })
+        .catch((err) => {
+          console.error('Failed to load landmarks for floor grouping:', err);
+        });
+
+      floorApi
+        .getAll()
+        .then((res) => {
+          setFloors(res);
+        })
+        .catch((err) => {
+          console.error('Failed to load floor maps:', err);
+        })
+        .finally(() => {
+          setIsLoadingFloors(false);
+        });
+    } else if (moduleKey === 'viewpoints') {
+      setIsLoadingViewpoints(true);
+      // Fetch landmarks and floors to populate cascading dropdowns in viewpoint form
+      landmarkApi
+        .getAll()
+        .then((lms) => setLandmarks(lms))
+        .catch((err) => console.error('Failed to load landmarks for viewpoints:', err));
+
+      floorApi
+        .getAll()
+        .then((fls) => setFloors(fls))
+        .catch((err) => console.error('Failed to load floors for viewpoints:', err));
+
+      viewpointApi
+        .getAll()
+        .then((res) => setViewpoints(res))
+        .catch((err) => console.error('Failed to load viewpoints:', err))
+        .finally(() => setIsLoadingViewpoints(false));
     }
   }, [moduleKey]);
+
+  const filteredLandmarks = useMemo(() => {
+    if (!landmarkSearch.trim()) return landmarks;
+    const q = landmarkSearch.toLowerCase();
+    return landmarks.filter(
+      (l) =>
+        l.name.toLowerCase().includes(q) ||
+        l.code.toLowerCase().includes(q) ||
+        (l.description && l.description.toLowerCase().includes(q))
+    );
+  }, [landmarks, landmarkSearch]);
+
+  const filteredFloors = useMemo(() => {
+    if (!floorSearch.trim()) return floors;
+    const q = floorSearch.toLowerCase();
+    return floors.filter(
+      (f) =>
+        f.displayName.toLowerCase().includes(q) ||
+        f.shortName.toLowerCase().includes(q) ||
+        f.floorId.toLowerCase().includes(q) ||
+        f.landmarkCode.toLowerCase().includes(q) ||
+        (f.semanticLabel && f.semanticLabel.toLowerCase().includes(q))
+    );
+  }, [floors, floorSearch]);
+
+  const filteredViewpoints = useMemo(() => {
+    if (!viewpointSearch.trim()) return viewpoints;
+    const q = viewpointSearch.toLowerCase();
+    return viewpoints.filter(
+      (vp) =>
+        vp.title.toLowerCase().includes(q) ||
+        vp.id.toLowerCase().includes(q) ||
+        vp.floorId.toLowerCase().includes(q) ||
+        (vp.description && vp.description.toLowerCase().includes(q))
+    );
+  }, [viewpoints, viewpointSearch]);
+
+  const groupedFloors = useMemo<
+    Array<{
+      landmarkCode: string;
+      landmarkName: string;
+      landmarkLogo?: string;
+      floors: FloorModel[];
+    }>
+  >(() => {
+    const norm = (str: string) => str.toLowerCase().replace(/[-_]/g, '');
+
+    const landmarkMap = new Map<string, LandmarkModel>();
+    landmarks.forEach((lm) => {
+      landmarkMap.set(norm(lm.code), lm);
+      if (lm.id) landmarkMap.set(norm(lm.id), lm);
+    });
+
+    const groupsMap = new Map<
+      string,
+      {
+        landmarkCode: string;
+        landmarkName: string;
+        landmarkLogo?: string;
+        floors: FloorModel[];
+      }
+    >();
+
+    filteredFloors.forEach((fl) => {
+      const code = fl.landmarkCode || 'colosseum';
+      const normalizedKey = norm(code);
+      const matchedLandmark = landmarkMap.get(normalizedKey);
+
+      const landmarkName =
+        matchedLandmark?.name ||
+        (code === 'colosseum'
+          ? 'Colosseum (Flavian Amphitheatre)'
+          : code
+              .split(/[-_]/)
+              .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+              .join(' '));
+
+      const landmarkLogo = matchedLandmark?.thumbnailUrl || matchedLandmark?.assetPath;
+
+      if (!groupsMap.has(normalizedKey)) {
+        groupsMap.set(normalizedKey, {
+          landmarkCode: matchedLandmark?.code || code,
+          landmarkName,
+          landmarkLogo,
+          floors: [],
+        });
+      }
+
+      groupsMap.get(normalizedKey)!.floors.push(fl);
+    });
+
+    return Array.from(groupsMap.values());
+  }, [filteredFloors, landmarks]);
+
+  const toggleLandmarkCollapse = useCallback((landmarkCode: string) => {
+    setCollapsedLandmarks((prev) => ({
+      ...prev,
+      [landmarkCode]: !prev[landmarkCode],
+    }));
+  }, []);
+
+  const handleExpandAll = useCallback(() => {
+    setCollapsedLandmarks({});
+  }, []);
+
+  const handleCollapseAll = useCallback(() => {
+    const allCollapsed: Record<string, boolean> = {};
+    groupedFloors.forEach((g) => {
+      allCollapsed[g.landmarkCode] = true;
+    });
+    setCollapsedLandmarks(allCollapsed);
+  }, [groupedFloors]);
 
   // If module key doesn't exist, redirect to error
   if (!moduleDef) {
@@ -408,16 +480,6 @@ export const ModuleManagementView: React.FC = () => {
   const canUpdate = currentRbac.Update === 'true';
   const canDelete = currentRbac.Delete === 'true';
 
-  const filteredLandmarks = landmarks.filter((l) => {
-    if (!landmarkSearch.trim()) return true;
-    const q = landmarkSearch.toLowerCase();
-    return (
-      l.name.toLowerCase().includes(q) ||
-      l.code.toLowerCase().includes(q) ||
-      (l.description && l.description.toLowerCase().includes(q))
-    );
-  });
-
   const handleConfirmDelete = async () => {
     if (!landmarkToDelete) return;
     const targetId = landmarkToDelete.id || landmarkToDelete.code;
@@ -434,6 +496,44 @@ export const ModuleManagementView: React.FC = () => {
       showError('Delete Failed', msg);
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleConfirmDeleteFloor = async () => {
+    if (!floorToDelete) return;
+    const targetId = floorToDelete.id || floorToDelete.floorId;
+    const name = floorToDelete.displayName;
+    try {
+      setIsDeletingFloor(true);
+      await floorApi.delete(targetId);
+      setFloors((prev) => prev.filter((f) => f.id !== targetId && f.floorId !== targetId));
+      showSuccess('Floor Map Deleted', `Removed "${name}" and unlinked its vector map assets.`);
+      setIsDeleteFloorModalOpen(false);
+      setFloorToDelete(null);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unable to delete floor map';
+      showError('Delete Failed', msg);
+    } finally {
+      setIsDeletingFloor(false);
+    }
+  };
+
+  const handleConfirmDeleteViewpoint = async () => {
+    if (!viewpointToDelete) return;
+    const targetId = viewpointToDelete.id;
+    const name = viewpointToDelete.title;
+    try {
+      setIsDeletingViewpoint(true);
+      await viewpointApi.delete(targetId);
+      setViewpoints((prev) => prev.filter((v) => v.id !== targetId));
+      showSuccess('Viewpoint Deleted', `Removed "${name}" from tour stops.`);
+      setIsDeleteViewpointModalOpen(false);
+      setViewpointToDelete(null);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unable to delete viewpoint';
+      showError('Delete Failed', msg);
+    } finally {
+      setIsDeletingViewpoint(false);
     }
   };
 
@@ -462,6 +562,74 @@ export const ModuleManagementView: React.FC = () => {
                 l.id === updatedLandmark.id || l.code === updatedLandmark.code ? updatedLandmark : l
               )
             );
+          }}
+        />
+      )}
+
+      {/* Create / Edit Floor Map Modal */}
+      {moduleKey === 'floors' && (
+        <CreateFloorDialog
+          open={isCreateFloorOpen}
+          onOpenChange={(open) => {
+            setIsCreateFloorOpen(open);
+            if (!open) {
+              setEditingFloor(null);
+            }
+          }}
+          floorToEdit={editingFloor}
+          onCreated={(newFloor) => {
+            setFloors((prev) => [
+              newFloor,
+              ...prev.filter((f) => f.floorId !== newFloor.floorId && f.id !== newFloor.id),
+            ]);
+          }}
+          onUpdated={(updatedFloor) => {
+            setFloors((prev) =>
+              prev.map((f) =>
+                f.id === updatedFloor.id || f.floorId === updatedFloor.floorId ? updatedFloor : f
+              )
+            );
+          }}
+          landmarkOptions={
+            landmarks.length > 0
+              ? landmarks.map((l) => ({ code: l.code, name: l.name }))
+              : [{ code: 'colosseum', name: 'Colosseum (Flavian Amphitheatre)' }]
+          }
+          defaultLandmarkCode={targetLandmarkForNewFloor}
+          onSubmitFloor={async (payload) => {
+            if (editingFloor) {
+              const targetId = editingFloor.id || editingFloor.floorId;
+              return await floorApi.update(targetId, payload);
+            }
+            return await floorApi.create(payload);
+          }}
+        />
+      )}
+
+      {/* Create / Edit Viewpoint Modal */}
+      {moduleKey === 'viewpoints' && (
+        <CreateViewpointDialog
+          open={isCreateViewpointOpen}
+          onOpenChange={(open) => {
+            setIsCreateViewpointOpen(open);
+            if (!open) {
+              setEditingViewpoint(null);
+            }
+          }}
+          viewpointToEdit={editingViewpoint}
+          landmarks={landmarks}
+          floors={floors}
+          onCreated={(newVp) => {
+            setViewpoints((prev) => [newVp, ...prev.filter((v) => v.id !== newVp.id)]);
+          }}
+          onUpdated={(updatedVp) => {
+            setViewpoints((prev) => prev.map((v) => (v.id === updatedVp.id ? updatedVp : v)));
+          }}
+          onSubmitViewpoint={async (payload) => {
+            if (editingViewpoint) {
+              return await viewpointApi.update(editingViewpoint.id, payload);
+            }
+            return await viewpointApi.create(payload);
           }}
         />
       )}
@@ -559,10 +727,192 @@ export const ModuleManagementView: React.FC = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Delete Floor Confirmation Warning Modal */}
+      <Dialog open={isDeleteFloorModalOpen} onOpenChange={setIsDeleteFloorModalOpen}>
+        <DialogContent
+          aria-describedby={undefined}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          className="sm:max-w-md bg-card border-border shadow-2xl p-6 overflow-hidden focus:outline-none focus-visible:ring-0"
+        >
+          <DialogHeader className="pb-3 border-b border-border">
+            <div className="flex items-center gap-3">
+              <div className="flex size-11 items-center justify-center rounded-full bg-destructive/10 text-destructive font-bold shrink-0 border border-destructive/20">
+                <AlertTriangle className="size-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <DialogTitle className="text-lg font-black text-foreground tracking-tight">
+                  Delete Floor Map
+                </DialogTitle>
+                <DialogDescription className="sr-only">
+                  Confirm permanent deletion of the selected vector floor map
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="py-3 space-y-3">
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Are you sure you want to permanently delete{' '}
+              <span className="font-bold text-foreground">{floorToDelete?.displayName}</span>? This
+              action cannot be undone and will unlink viewpoints and navigation graph nodes
+              associated with this floor.
+            </p>
+
+            {floorToDelete && (
+              <div className="p-3 bg-muted/40 border border-border rounded-xl space-y-1.5 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Floor Identifier:</span>
+                  <span className="font-mono font-semibold text-foreground">
+                    {floorToDelete.floorId}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Level Index:</span>
+                  <span className="font-mono text-foreground">
+                    Level {floorToDelete.levelIndex} ({floorToDelete.floorNumberLabel})
+                  </span>
+                </div>
+                {floorToDelete.calibration?.centerCoordinates && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Coordinates:</span>
+                    <span className="font-mono text-foreground">
+                      {floorToDelete.calibration.centerCoordinates.latitude.toFixed(5)},{' '}
+                      {floorToDelete.calibration.centerCoordinates.longitude.toFixed(5)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="pt-3 border-t border-border flex items-center justify-end gap-2.5">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsDeleteFloorModalOpen(false)}
+              disabled={isDeletingFloor}
+              className="cursor-pointer border-border hover:bg-muted focus-visible:ring-0 focus-visible:outline-none"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleConfirmDeleteFloor}
+              disabled={isDeletingFloor}
+              className="gap-2 bg-destructive text-destructive-foreground hover:bg-destructive/90 font-semibold cursor-pointer shadow-xs focus-visible:ring-0 focus-visible:outline-none"
+            >
+              {isDeletingFloor ? (
+                <>
+                  <RefreshCw className="size-3.5 animate-spin" />
+                  <span>Deleting...</span>
+                </>
+              ) : (
+                <>
+                  <Trash2 className="size-3.5" />
+                  <span>Delete Floor Map</span>
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Warning Modal for Viewpoints */}
+      <Dialog open={isDeleteViewpointModalOpen} onOpenChange={setIsDeleteViewpointModalOpen}>
+        <DialogContent
+          aria-describedby={undefined}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          className="sm:max-w-md bg-card border-border shadow-2xl p-6 overflow-hidden focus:outline-none focus-visible:ring-0"
+        >
+          <DialogHeader className="pb-3 border-b border-border">
+            <div className="flex items-center gap-3">
+              <div className="flex size-11 items-center justify-center rounded-full bg-destructive/10 text-destructive font-bold shrink-0 border border-destructive/20">
+                <AlertTriangle className="size-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <DialogTitle className="text-lg font-black text-foreground tracking-tight">
+                  Delete Viewpoint
+                </DialogTitle>
+                <DialogDescription className="sr-only">
+                  Confirm permanent deletion of the selected viewpoint hotspot
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="py-3 space-y-3">
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Are you sure you want to permanently delete{' '}
+              <span className="font-bold text-foreground">{viewpointToDelete?.title}</span>? This
+              action cannot be undone and will remove the hotspot from audio tour guides and floor
+              maps.
+            </p>
+
+            {viewpointToDelete && (
+              <div className="p-3 bg-muted/40 border border-border rounded-xl space-y-1.5 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Viewpoint ID:</span>
+                  <span className="font-mono font-semibold text-foreground">
+                    {viewpointToDelete.id}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Associated Floor:</span>
+                  <span className="font-mono text-foreground">{viewpointToDelete.floorId}</span>
+                </div>
+                {viewpointToDelete.latitude !== null && viewpointToDelete.longitude !== null && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">GPS Coordinates:</span>
+                    <span className="font-mono text-foreground">
+                      {viewpointToDelete.latitude?.toFixed(5)},{' '}
+                      {viewpointToDelete.longitude?.toFixed(5)}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="pt-3 border-t border-border flex items-center justify-end gap-2.5">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsDeleteViewpointModalOpen(false)}
+              disabled={isDeletingViewpoint}
+              className="cursor-pointer border-border hover:bg-muted focus-visible:ring-0 focus-visible:outline-none"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleConfirmDeleteViewpoint}
+              disabled={isDeletingViewpoint}
+              className="gap-2 bg-destructive text-destructive-foreground hover:bg-destructive/90 font-semibold cursor-pointer shadow-xs focus-visible:ring-0 focus-visible:outline-none"
+            >
+              {isDeletingViewpoint ? (
+                <>
+                  <RefreshCw className="size-3.5 animate-spin" />
+                  <span>Deleting...</span>
+                </>
+              ) : (
+                <>
+                  <Trash2 className="size-3.5" />
+                  <span>Delete Viewpoint</span>
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Header & Breadcrumb */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
         <div className="space-y-1">
-          {moduleKey !== 'landmarks' && (
+          {moduleKey !== 'landmarks' && moduleKey !== 'floors' && moduleKey !== 'viewpoints' && (
             <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-secondary text-secondary-foreground text-xs font-semibold">
               <IconComponent className="size-3.5 text-primary" />
               <span>Admin Console</span>
@@ -571,7 +921,7 @@ export const ModuleManagementView: React.FC = () => {
             </div>
           )}
           <h1 className="text-2xl font-black text-foreground tracking-tight">{moduleDef.name}</h1>
-          {moduleKey !== 'landmarks' && (
+          {moduleKey !== 'landmarks' && moduleKey !== 'floors' && moduleKey !== 'viewpoints' && (
             <p className="text-xs text-muted-foreground">{moduleDef.description}</p>
           )}
         </div>
@@ -599,6 +949,13 @@ export const ModuleManagementView: React.FC = () => {
               if (moduleKey === 'landmarks') {
                 setEditingLandmark(null);
                 setIsCreateLandmarkOpen(true);
+              } else if (moduleKey === 'floors') {
+                setTargetLandmarkForNewFloor(undefined);
+                setEditingFloor(null);
+                setIsCreateFloorOpen(true);
+              } else if (moduleKey === 'viewpoints') {
+                setEditingViewpoint(null);
+                setIsCreateViewpointOpen(true);
               } else {
                 showSuccess('Entry Created', `New ${moduleDef.singular} draft initialized.`);
               }
@@ -613,7 +970,7 @@ export const ModuleManagementView: React.FC = () => {
       </div>
 
       {/* Permissions Transparency Banner */}
-      {moduleKey !== 'landmarks' && (
+      {moduleKey !== 'landmarks' && moduleKey !== 'floors' && moduleKey !== 'viewpoints' && (
         <div className="bg-card border border-border rounded-xl p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <div className="flex size-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
@@ -688,7 +1045,7 @@ export const ModuleManagementView: React.FC = () => {
             <h2 className="text-sm font-bold text-foreground">
               Active {moduleDef.name} Catalog Entries
             </h2>
-            {moduleKey !== 'landmarks' && (
+            {moduleKey !== 'landmarks' && moduleKey !== 'floors' && moduleKey !== 'viewpoints' && (
               <p className="text-xs text-muted-foreground">
                 Manage live records, coordinate calibrations, and sync manifests.
               </p>
@@ -708,7 +1065,33 @@ export const ModuleManagementView: React.FC = () => {
                 />
               </div>
             )}
-            {moduleKey !== 'landmarks' && (
+            {moduleKey === 'floors' && (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={
+                    Object.values(collapsedLandmarks).some(Boolean)
+                      ? handleExpandAll
+                      : handleCollapseAll
+                  }
+                  className="h-8 text-xs text-muted-foreground hover:text-foreground cursor-pointer px-2"
+                >
+                  {Object.values(collapsedLandmarks).some(Boolean) ? 'Expand All' : 'Collapse All'}
+                </Button>
+                <div className="relative">
+                  <Search className="size-3.5 absolute left-2.5 top-2.5 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Filter floor maps..."
+                    value={floorSearch}
+                    onChange={(e) => setFloorSearch(e.target.value)}
+                    className="pl-8 pr-3 py-1.5 bg-background border border-input rounded-lg text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary w-44 sm:w-56"
+                  />
+                </div>
+              </div>
+            )}
+            {moduleKey !== 'landmarks' && moduleKey !== 'floors' && (
               <span className="text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary font-bold whitespace-nowrap">
                 {`${moduleDef.sampleData.length} Registered`}
               </span>
@@ -820,6 +1203,237 @@ export const ModuleManagementView: React.FC = () => {
                           e.currentTarget.blur();
                           setLandmarkToDelete(lm);
                           setIsDeleteModalOpen(true);
+                        }}
+                        className="h-8 px-3 text-xs border-destructive/20 text-destructive hover:bg-destructive/10 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : moduleKey === 'floors' ? (
+          /* Floors Grouped by Landmark */
+          <div>
+            {isLoadingFloors ? (
+              <div className="p-8 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="size-4 animate-spin text-primary" />
+                <span>Loading vector floor maps...</span>
+              </div>
+            ) : groupedFloors.length === 0 ? (
+              <div className="p-10 text-center space-y-2">
+                <p className="text-sm font-medium text-foreground">No floor maps found</p>
+                <p className="text-xs text-muted-foreground">
+                  {floorSearch
+                    ? 'No records match your search filter.'
+                    : 'Click "New Floor Map" above to register an architectural floor plan.'}
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {groupedFloors.map((group) => {
+                  const isCollapsed = Boolean(collapsedLandmarks[group.landmarkCode]);
+                  return (
+                    <div key={group.landmarkCode} className="transition-colors">
+                      {/* Landmark Accordion Header */}
+                      <div
+                        onClick={() => toggleLandmarkCollapse(group.landmarkCode)}
+                        className="p-3 sm:px-5 bg-muted/40 hover:bg-muted/70 transition-colors flex items-center justify-between gap-3 cursor-pointer select-none"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span
+                            aria-label={
+                              isCollapsed ? 'Extend landmark floors' : 'Collapse landmark floors'
+                            }
+                            className="size-6 rounded-md flex items-center justify-center hover:bg-muted text-foreground transition-transform shrink-0"
+                          >
+                            <ChevronDown
+                              className={`size-4 text-foreground transition-transform duration-200 ${
+                                isCollapsed ? '-rotate-90' : 'rotate-0'
+                              }`}
+                            />
+                          </span>
+
+                          <div className="size-7 rounded-lg border border-border bg-card overflow-hidden shrink-0 flex items-center justify-center">
+                            {group.landmarkLogo ? (
+                              <img
+                                src={group.landmarkLogo}
+                                alt={group.landmarkName}
+                                className="size-full object-cover"
+                              />
+                            ) : (
+                              <Landmark className="size-4 text-primary" />
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2 flex-wrap min-w-0">
+                            <span className="font-bold text-sm text-foreground truncate">
+                              {group.landmarkName}
+                            </span>
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground border border-border font-medium">
+                              {group.floors.length} {group.floors.length === 1 ? 'Floor' : 'Floors'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={!canCreate}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setTargetLandmarkForNewFloor(group.landmarkCode);
+                              setEditingFloor(null);
+                              setIsCreateFloorOpen(true);
+                            }}
+                            className="h-7 px-2.5 text-xs text-primary hover:text-primary hover:bg-primary/10 cursor-pointer disabled:opacity-40"
+                          >
+                            <Plus className="size-3 mr-1" />
+                            <span>Add Floor</span>
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Floor Items under Landmark */}
+                      {!isCollapsed && (
+                        <div className="divide-y divide-border/60 bg-card border-t border-border/50 pl-4 sm:pl-8">
+                          {group.floors.map((fl) => (
+                            <div
+                              key={fl.floorId || fl.id}
+                              className="py-3 px-4 sm:px-6 hover:bg-muted/20 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                            >
+                              <div className="min-w-0 flex items-center">
+                                <span className="font-bold text-sm text-foreground">
+                                  {fl.displayName}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={!canUpdate}
+                                  onClick={(e) => {
+                                    e.currentTarget.blur();
+                                    setEditingFloor(fl);
+                                    setIsCreateFloorOpen(true);
+                                  }}
+                                  className="h-8 px-3 text-xs border-border hover:bg-muted cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                  Edit
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={!canDelete}
+                                  onClick={(e) => {
+                                    e.currentTarget.blur();
+                                    setFloorToDelete(fl);
+                                    setIsDeleteFloorModalOpen(true);
+                                  }}
+                                  className="h-8 px-3 text-xs border-destructive/20 text-destructive hover:bg-destructive/10 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                  Delete
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ) : moduleKey === 'viewpoints' ? (
+          /* Live Viewpoints Catalog */
+          <div className="p-4 sm:p-6 space-y-4">
+            {/* Toolbar: Search Viewpoint */}
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="relative flex-1 min-w-[200px] max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Filter viewpoints by title, floor or ID..."
+                  value={viewpointSearch}
+                  onChange={(e) => setViewpointSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-1.5 bg-background border border-border rounded-lg text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
+                />
+              </div>
+
+              <div className="text-xs text-muted-foreground">
+                Total: <span className="font-semibold text-foreground">{viewpoints.length}</span>{' '}
+                hotspots
+              </div>
+            </div>
+
+            {isLoadingViewpoints ? (
+              <div className="flex flex-col items-center justify-center py-12 space-y-3">
+                <Loader2 className="size-6 text-primary animate-spin" />
+                <span className="text-xs text-muted-foreground font-medium">
+                  Loading viewpoints catalog...
+                </span>
+              </div>
+            ) : filteredViewpoints.length === 0 ? (
+              <div className="text-center py-12 space-y-2 border border-dashed border-border rounded-xl">
+                <Eye className="size-8 text-muted-foreground mx-auto" />
+                <p className="text-sm font-semibold text-foreground">No Viewpoints Found</p>
+                <p className="text-xs text-muted-foreground">
+                  {viewpointSearch
+                    ? 'No viewpoints match your filter query.'
+                    : 'Click "New Viewpoint" above to register your first hotspot.'}
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border border border-border rounded-xl overflow-hidden bg-card">
+                {filteredViewpoints.map((vp) => (
+                  <div
+                    key={vp.id}
+                    className="p-4 sm:px-6 hover:bg-muted/30 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  >
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-sm text-foreground truncate">
+                          {vp.title}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                        {vp.latitude !== null && vp.longitude !== null && (
+                          <span className="flex items-center gap-1 font-mono text-[11px]">
+                            <MapPin className="size-3 text-primary shrink-0" />
+                            Lat: {vp.latitude.toFixed(5)}, Lng: {vp.longitude.toFixed(5)}
+                          </span>
+                        )}
+                        {vp.audioDuration && <span>Audio: {vp.audioDuration}</span>}
+                        {vp.triggerRadiusMeters && <span>Trigger: {vp.triggerRadiusMeters}m</span>}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!canUpdate}
+                        onClick={() => {
+                          setEditingViewpoint(vp);
+                          setIsCreateViewpointOpen(true);
+                        }}
+                        className="h-8 px-3 text-xs border-border hover:bg-muted cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!canDelete}
+                        onClick={() => {
+                          setViewpointToDelete(vp);
+                          setIsDeleteViewpointModalOpen(true);
                         }}
                         className="h-8 px-3 text-xs border-destructive/20 text-destructive hover:bg-destructive/10 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                       >

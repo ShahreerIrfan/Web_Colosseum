@@ -10,11 +10,12 @@ import {
 import React, { useState } from 'react';
 
 interface VisitorFaqProps {
-  faqs: VisitorFaqItem[];
+  faqs?: VisitorFaqItem[];
 }
 
-export const VisitorFaq: React.FC<VisitorFaqProps> = ({ faqs }) => {
+export const VisitorFaq: React.FC<VisitorFaqProps> = ({ faqs = [] }) => {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
+  const safeFaqs = Array.isArray(faqs) ? faqs : [];
 
   const toggle = (idx: number) => {
     setOpenIndex(openIndex === idx ? null : idx);
@@ -66,7 +67,7 @@ export const VisitorFaq: React.FC<VisitorFaqProps> = ({ faqs }) => {
 
         {/* Accordion List */}
         <div className="space-y-3">
-          {faqs.map((faq, idx) => {
+          {safeFaqs.map((faq, idx) => {
             const isOpen = openIndex === idx;
             return (
               <div

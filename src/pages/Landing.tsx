@@ -42,7 +42,7 @@ export const Landing: React.FC = () => {
   useEffect(() => {
     let ignore = false;
     landmarkApi.getFaqs().then((data) => {
-      if (!ignore) {
+      if (!ignore && Array.isArray(data)) {
         setFaqs(data);
       }
     });
