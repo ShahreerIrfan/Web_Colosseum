@@ -4,6 +4,7 @@ import { viewpointApi } from '@/apis/viewpoint/viewpointApi';
 import { CreateFloorDialog } from '@/components/admin/CreateFloorDialog';
 import { CreateLandmarkDialog } from '@/components/admin/CreateLandmarkDialog';
 import { CreateViewpointDialog } from '@/components/admin/CreateViewpointDialog';
+import ModuleLoading from '@/components/admin/ModuleLoading';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -29,13 +30,11 @@ import {
   Globe,
   Landmark,
   Layers,
-  Loader2,
   MapPin,
   Maximize2,
   Plus,
   RefreshCw,
   Search,
-  Settings,
   ShieldCheck,
   Ticket,
   Trash2,
@@ -172,22 +171,6 @@ const MODULE_DEFINITIONS: Record<
       },
     ],
   },
-  'park-config': {
-    name: 'Park Configuration',
-    description:
-      'Global park operating hours, proximity geofence radius settings, and visitor capacity limits',
-    category: 'Park Administration',
-    singular: 'Park Parameter',
-    icon: Settings,
-    sampleData: [
-      {
-        id: 'cfg_hours',
-        title: 'Operating Hours Configuration',
-        subtitle: '08:30 - 19:15 CEST • Max Concurrent Visitors: 3,000',
-        tag: 'Active Rules',
-      },
-    ],
-  },
   'staff-accounts': {
     name: 'Staff & User Accounts',
     description:
@@ -236,6 +219,10 @@ const MODULE_DEFINITIONS: Record<
 
 export const ModuleManagementView: React.FC = () => {
   const { moduleKey = 'viewpoints' } = useParams<{ moduleKey: string }>();
+  return <ModuleCatalog key={moduleKey} moduleKey={moduleKey} />;
+};
+
+function ModuleCatalog({ moduleKey }: { moduleKey: string }) {
   const { showSuccess, showInfo, showError } = useToast();
 
   const [isCreateLandmarkOpen, setIsCreateLandmarkOpen] = useState(false);
@@ -244,7 +231,6 @@ export const ModuleManagementView: React.FC = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [landmarks, setLandmarks] = useState<LandmarkModel[]>([]);
-  const [isLoadingLandmarks, setIsLoadingLandmarks] = useState(false);
   const [landmarkSearch, setLandmarkSearch] = useState('');
 
   // Floors State
@@ -254,7 +240,6 @@ export const ModuleManagementView: React.FC = () => {
   const [isDeleteFloorModalOpen, setIsDeleteFloorModalOpen] = useState(false);
   const [isDeletingFloor, setIsDeletingFloor] = useState(false);
   const [floors, setFloors] = useState<FloorModel[]>([]);
-  const [isLoadingFloors, setIsLoadingFloors] = useState(false);
   const [floorSearch, setFloorSearch] = useState('');
   const [collapsedLandmarks, setCollapsedLandmarks] = useState<Record<string, boolean>>({});
   const [targetLandmarkForNewFloor, setTargetLandmarkForNewFloor] = useState<string | undefined>(
@@ -268,7 +253,7 @@ export const ModuleManagementView: React.FC = () => {
   const [isDeleteViewpointModalOpen, setIsDeleteViewpointModalOpen] = useState(false);
   const [isDeletingViewpoint, setIsDeletingViewpoint] = useState(false);
   const [viewpoints, setViewpoints] = useState<ViewpointModel[]>([]);
-  const [isLoadingViewpoints, setIsLoadingViewpoints] = useState(false);
+  const [viewpointLoadFailed, setViewpointLoadFailed] = useState(false);
   const [viewpointSearch, setViewpointSearch] = useState('');
 
   const user = useMemo<UserPayload | null>(() => {
@@ -281,63 +266,47 @@ export const ModuleManagementView: React.FC = () => {
 
   const moduleDef = MODULE_DEFINITIONS[moduleKey];
 
-  // Fetch real landmarks or floors when viewing respective modules
+  const [loading, setLoading] = useState(
+    moduleKey === 'landmarks' || moduleKey === 'floors' || moduleKey === 'viewpoints'
+  );
+
   useEffect(() => {
-    if (moduleKey === 'landmarks') {
-      setIsLoadingLandmarks(true);
-      landmarkApi
-        .getAll()
-        .then((res) => {
-          setLandmarks(res);
-        })
-        .catch((err) => {
-          console.error('Failed to load landmarks:', err);
-        })
-        .finally(() => {
-          setIsLoadingLandmarks(false);
-        });
-    } else if (moduleKey === 'floors') {
-      setIsLoadingFloors(true);
-      // Fetch landmarks so we can display their names, logos, and group floors cleanly
-      landmarkApi
-        .getAll()
-        .then((lms) => {
-          setLandmarks(lms);
-        })
-        .catch((err) => {
-          console.error('Failed to load landmarks for floor grouping:', err);
-        });
+    if (moduleKey !== 'landmarks' && moduleKey !== 'floors' && moduleKey !== 'viewpoints') return;
+    let active = true;
 
-      floorApi
-        .getAll()
-        .then((res) => {
-          setFloors(res);
-        })
-        .catch((err) => {
-          console.error('Failed to load floor maps:', err);
-        })
-        .finally(() => {
-          setIsLoadingFloors(false);
-        });
-    } else if (moduleKey === 'viewpoints') {
-      setIsLoadingViewpoints(true);
-      // Fetch landmarks and floors to populate cascading dropdowns in viewpoint form
-      landmarkApi
-        .getAll()
-        .then((lms) => setLandmarks(lms))
-        .catch((err) => console.error('Failed to load landmarks for viewpoints:', err));
+    const landmarkRequest = landmarkApi
+      .getAll()
+      .then((items) => {
+        if (active) setLandmarks(items);
+      })
+      .catch((error: unknown) => console.error('Failed to load landmarks:', error));
+    const floorRequest =
+      moduleKey === 'landmarks'
+        ? null
+        : floorApi
+            .getAll()
+            .then((items) => {
+              if (active) setFloors(items);
+            })
+            .catch((error: unknown) => console.error('Failed to load floor maps:', error));
+    const viewpointRequest =
+      moduleKey !== 'viewpoints'
+        ? null
+        : viewpointApi
+            .getAll()
+            .then((items) => {
+              if (active) setViewpoints(items);
+            })
+            .catch(() => {
+              if (active) setViewpointLoadFailed(true);
+            });
 
-      floorApi
-        .getAll()
-        .then((fls) => setFloors(fls))
-        .catch((err) => console.error('Failed to load floors for viewpoints:', err));
-
-      viewpointApi
-        .getAll()
-        .then((res) => setViewpoints(res))
-        .catch((err) => console.error('Failed to load viewpoints:', err))
-        .finally(() => setIsLoadingViewpoints(false));
-    }
+    void Promise.all([landmarkRequest, floorRequest, viewpointRequest]).finally(() => {
+      if (active) setLoading(false);
+    });
+    return () => {
+      active = false;
+    };
   }, [moduleKey]);
 
   const filteredLandmarks = useMemo(() => {
@@ -537,6 +506,8 @@ export const ModuleManagementView: React.FC = () => {
     }
   };
 
+  if (loading) return <ModuleLoading />;
+
   return (
     <div className="flex-1 bg-background text-foreground space-y-6 max-w-6xl mx-auto w-full pb-12">
       {/* Create / Edit Landmark Modal */}
@@ -586,7 +557,7 @@ export const ModuleManagementView: React.FC = () => {
           onUpdated={(updatedFloor) => {
             setFloors((prev) =>
               prev.map((f) =>
-                f.id === updatedFloor.id || f.floorId === updatedFloor.floorId ? updatedFloor : f
+                f.id === editingFloor?.id || f.floorId === editingFloor?.floorId ? updatedFloor : f
               )
             );
           }}
@@ -1102,12 +1073,7 @@ export const ModuleManagementView: React.FC = () => {
         {/* Landmarks Specific Catalog */}
         {moduleKey === 'landmarks' ? (
           <div>
-            {isLoadingLandmarks ? (
-              <div className="p-8 flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                <Loader2 className="size-4 animate-spin text-primary" />
-                <span>Loading active monuments...</span>
-              </div>
-            ) : filteredLandmarks.length === 0 ? (
+            {filteredLandmarks.length === 0 ? (
               <div className="p-10 text-center space-y-2">
                 <p className="text-sm font-medium text-foreground">No landmarks found</p>
                 <p className="text-xs text-muted-foreground">
@@ -1217,12 +1183,7 @@ export const ModuleManagementView: React.FC = () => {
         ) : moduleKey === 'floors' ? (
           /* Floors Grouped by Landmark */
           <div>
-            {isLoadingFloors ? (
-              <div className="p-8 flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                <Loader2 className="size-4 animate-spin text-primary" />
-                <span>Loading vector floor maps...</span>
-              </div>
-            ) : groupedFloors.length === 0 ? (
+            {groupedFloors.length === 0 ? (
               <div className="p-10 text-center space-y-2">
                 <p className="text-sm font-medium text-foreground">No floor maps found</p>
                 <p className="text-xs text-muted-foreground">
@@ -1371,13 +1332,10 @@ export const ModuleManagementView: React.FC = () => {
               </div>
             </div>
 
-            {isLoadingViewpoints ? (
-              <div className="flex flex-col items-center justify-center py-12 space-y-3">
-                <Loader2 className="size-6 text-primary animate-spin" />
-                <span className="text-xs text-muted-foreground font-medium">
-                  Loading viewpoints catalog...
-                </span>
-              </div>
+            {viewpointLoadFailed ? (
+              <p role="alert" className="p-6 text-sm text-destructive">
+                Unable to load Viewpoints. Reload the page to try again.
+              </p>
             ) : filteredViewpoints.length === 0 ? (
               <div className="text-center py-12 space-y-2 border border-dashed border-border rounded-xl">
                 <Eye className="size-8 text-muted-foreground mx-auto" />
@@ -1409,7 +1367,6 @@ export const ModuleManagementView: React.FC = () => {
                             Lat: {vp.latitude.toFixed(5)}, Lng: {vp.longitude.toFixed(5)}
                           </span>
                         )}
-                        {vp.audioDuration && <span>Audio: {vp.audioDuration}</span>}
                         {vp.triggerRadiusMeters && <span>Trigger: {vp.triggerRadiusMeters}m</span>}
                       </div>
                     </div>
@@ -1490,6 +1447,6 @@ export const ModuleManagementView: React.FC = () => {
       </div>
     </div>
   );
-};
+}
 
 export default ModuleManagementView;

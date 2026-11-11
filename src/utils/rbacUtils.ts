@@ -1,237 +1,195 @@
 import type { RbacItem, UserPayload } from '@/types/api/authTypes';
 
-export const ALL_SYSTEM_MODULES = [
-  'Monuments & Landmarks',
-  'Vector Floor Maps',
-  'Viewpoint Hotspots',
-  'Audio Guides & Narration',
-  'Languages & Localization',
-  'Walking Tour Itineraries',
-  'Pedestrian Street Routes',
-  'GPS Geofencing & Tracking',
-  'Sync Bundles & Manifests',
-  'Mobile Client Offline Cache',
-  'Access & Tickets',
-  'Park Configuration',
-  'Staff & User Accounts',
-  'Role-Based Access Control',
-  'Analytics & Visitor Telemetry',
-] as const;
+export type CrudAction = 'Create' | 'Read' | 'Update' | 'Delete';
+export type RoleId = 'super_admin' | 'admin' | 'moderator' | 'user';
 
-export type SystemModuleName = (typeof ALL_SYSTEM_MODULES)[number];
+const crud = ['Create', 'Read', 'Update', 'Delete'] as const;
 
-export const DEFAULT_ROLE_RBAC: Record<
-  string,
-  Record<
-    SystemModuleName,
-    {
-      Create: 'true' | 'false';
-      Read: 'true' | 'false';
-      Update: 'true' | 'false';
-      Delete: 'true' | 'false';
-    }
-  >
-> = {
-  super_admin: {
-    'Monuments & Landmarks': { Create: 'true', Read: 'true', Update: 'true', Delete: 'true' },
-    'Vector Floor Maps': { Create: 'true', Read: 'true', Update: 'true', Delete: 'true' },
-    'Viewpoint Hotspots': { Create: 'true', Read: 'true', Update: 'true', Delete: 'true' },
-    'Audio Guides & Narration': { Create: 'true', Read: 'true', Update: 'true', Delete: 'true' },
-    'Languages & Localization': { Create: 'true', Read: 'true', Update: 'true', Delete: 'true' },
-    'Walking Tour Itineraries': { Create: 'true', Read: 'true', Update: 'true', Delete: 'true' },
-    'Pedestrian Street Routes': { Create: 'true', Read: 'true', Update: 'true', Delete: 'true' },
-    'GPS Geofencing & Tracking': { Create: 'true', Read: 'true', Update: 'true', Delete: 'true' },
-    'Sync Bundles & Manifests': { Create: 'true', Read: 'true', Update: 'true', Delete: 'true' },
-    'Mobile Client Offline Cache': { Create: 'true', Read: 'true', Update: 'true', Delete: 'true' },
-    'Access & Tickets': { Create: 'true', Read: 'true', Update: 'true', Delete: 'true' },
-    'Park Configuration': { Create: 'true', Read: 'true', Update: 'true', Delete: 'true' },
-    'Staff & User Accounts': { Create: 'true', Read: 'true', Update: 'true', Delete: 'true' },
-    'Role-Based Access Control': { Create: 'true', Read: 'true', Update: 'true', Delete: 'true' },
-    'Analytics & Visitor Telemetry': {
-      Create: 'true',
-      Read: 'true',
-      Update: 'true',
-      Delete: 'true',
-    },
+export const ADMIN_MODULES = [
+  {
+    id: 'analytics',
+    name: 'Dashboard',
+    key: 'Analytics & Visitor Telemetry',
+    description: 'Visitor activity and tour reports',
+    actions: ['Read'],
   },
+  {
+    id: 'landmarks',
+    name: 'Monuments & Landmarks',
+    key: 'Monuments & Landmarks',
+    description: 'Monument details, map positions and published sites',
+    actions: crud,
+  },
+  {
+    id: 'floors',
+    name: 'Floor Maps',
+    key: 'Vector Floor Maps',
+    description: 'Floor details and map settings for each landmark',
+    actions: crud,
+  },
+  {
+    id: 'viewpoints',
+    name: 'Viewpoint',
+    key: 'Viewpoint Hotspots',
+    description: 'Tour stops, GPS coordinates and narration text',
+    actions: crud,
+  },
+  {
+    id: 'floorItinerary',
+    name: 'Floor Itinerary',
+    key: 'Floor Itinerary',
+    description: 'Walking connections between Viewpoints on a Floor',
+    actions: crud,
+  },
+  {
+    id: 'pedestrianRoutes',
+    name: 'Pedestrian Routes',
+    key: 'Pedestrian Street Routes',
+    description: 'Published walking routes between landmarks',
+    actions: crud,
+  },
+  {
+    id: 'rbac',
+    name: 'Role Management',
+    key: 'Role-Based Access Control',
+    description: 'Create, edit and delete custom roles',
+    actions: crud,
+  },
+  {
+    id: 'users',
+    name: 'Users',
+    key: 'Staff & User Accounts',
+    description: 'Create, edit and remove user accounts',
+    actions: crud,
+  },
+  {
+    id: 'languages',
+    name: 'Languages',
+    key: 'Languages & Localization',
+    description: 'Language catalog and tour content translations',
+    actions: crud,
+  },
+] as const satisfies readonly {
+  id: string;
+  name: string;
+  key: string;
+  description: string;
+  actions: readonly CrudAction[];
+}[];
+
+export type SystemModuleName = (typeof ADMIN_MODULES)[number]['key'];
+type ModuleId = (typeof ADMIN_MODULES)[number]['id'];
+
+const ROLE_ACTIONS: Record<
+  Exclude<RoleId, 'super_admin'>,
+  Partial<Record<ModuleId, readonly CrudAction[]>>
+> = {
   admin: {
-    'Monuments & Landmarks': { Create: 'true', Read: 'true', Update: 'true', Delete: 'false' },
-    'Vector Floor Maps': { Create: 'true', Read: 'true', Update: 'true', Delete: 'false' },
-    'Viewpoint Hotspots': { Create: 'true', Read: 'true', Update: 'true', Delete: 'true' },
-    'Audio Guides & Narration': { Create: 'true', Read: 'true', Update: 'true', Delete: 'true' },
-    'Languages & Localization': { Create: 'true', Read: 'true', Update: 'true', Delete: 'false' },
-    'Walking Tour Itineraries': { Create: 'true', Read: 'true', Update: 'true', Delete: 'true' },
-    'Pedestrian Street Routes': { Create: 'true', Read: 'true', Update: 'true', Delete: 'true' },
-    'GPS Geofencing & Tracking': { Create: 'false', Read: 'true', Update: 'true', Delete: 'false' },
-    'Sync Bundles & Manifests': { Create: 'true', Read: 'true', Update: 'true', Delete: 'false' },
-    'Mobile Client Offline Cache': {
-      Create: 'false',
-      Read: 'true',
-      Update: 'true',
-      Delete: 'false',
-    },
-    'Access & Tickets': { Create: 'true', Read: 'true', Update: 'true', Delete: 'false' },
-    'Park Configuration': { Create: 'false', Read: 'true', Update: 'true', Delete: 'false' },
-    'Staff & User Accounts': { Create: 'false', Read: 'true', Update: 'false', Delete: 'false' },
-    'Role-Based Access Control': {
-      Create: 'false',
-      Read: 'true',
-      Update: 'false',
-      Delete: 'false',
-    },
-    'Analytics & Visitor Telemetry': {
-      Create: 'false',
-      Read: 'true',
-      Update: 'false',
-      Delete: 'false',
-    },
+    analytics: ['Read'],
+    landmarks: ['Create', 'Read', 'Update'],
+    floors: ['Create', 'Read', 'Update'],
+    viewpoints: crud,
+    floorItinerary: crud,
+    pedestrianRoutes: crud,
+    rbac: ['Read'],
+    users: crud,
+    languages: ['Create', 'Read', 'Update'],
   },
   moderator: {
-    'Monuments & Landmarks': { Create: 'false', Read: 'true', Update: 'true', Delete: 'false' },
-    'Vector Floor Maps': { Create: 'false', Read: 'false', Update: 'false', Delete: 'false' },
-    'Viewpoint Hotspots': { Create: 'true', Read: 'true', Update: 'true', Delete: 'false' },
-    'Audio Guides & Narration': { Create: 'true', Read: 'true', Update: 'true', Delete: 'false' },
-    'Languages & Localization': { Create: 'false', Read: 'true', Update: 'true', Delete: 'false' },
-    'Walking Tour Itineraries': { Create: 'true', Read: 'true', Update: 'true', Delete: 'false' },
-    'Pedestrian Street Routes': { Create: 'false', Read: 'true', Update: 'false', Delete: 'false' },
-    'GPS Geofencing & Tracking': {
-      Create: 'false',
-      Read: 'true',
-      Update: 'false',
-      Delete: 'false',
-    },
-    'Sync Bundles & Manifests': { Create: 'false', Read: 'true', Update: 'false', Delete: 'false' },
-    'Mobile Client Offline Cache': {
-      Create: 'false',
-      Read: 'true',
-      Update: 'false',
-      Delete: 'false',
-    },
-    'Access & Tickets': { Create: 'false', Read: 'true', Update: 'false', Delete: 'false' },
-    'Park Configuration': { Create: 'false', Read: 'true', Update: 'false', Delete: 'false' },
-    'Staff & User Accounts': { Create: 'false', Read: 'false', Update: 'false', Delete: 'false' },
-    'Role-Based Access Control': {
-      Create: 'false',
-      Read: 'false',
-      Update: 'false',
-      Delete: 'false',
-    },
-    'Analytics & Visitor Telemetry': {
-      Create: 'false',
-      Read: 'true',
-      Update: 'false',
-      Delete: 'false',
-    },
+    landmarks: ['Read', 'Update'],
+    viewpoints: ['Create', 'Read', 'Update'],
+    pedestrianRoutes: ['Read'],
+    languages: ['Read', 'Update'],
   },
   user: {
-    'Monuments & Landmarks': { Create: 'false', Read: 'true', Update: 'false', Delete: 'false' },
-    'Vector Floor Maps': { Create: 'false', Read: 'true', Update: 'false', Delete: 'false' },
-    'Viewpoint Hotspots': { Create: 'false', Read: 'true', Update: 'false', Delete: 'false' },
-    'Audio Guides & Narration': { Create: 'false', Read: 'true', Update: 'false', Delete: 'false' },
-    'Languages & Localization': { Create: 'false', Read: 'true', Update: 'false', Delete: 'false' },
-    'Walking Tour Itineraries': { Create: 'false', Read: 'true', Update: 'false', Delete: 'false' },
-    'Pedestrian Street Routes': { Create: 'false', Read: 'true', Update: 'false', Delete: 'false' },
-    'GPS Geofencing & Tracking': {
-      Create: 'false',
-      Read: 'true',
-      Update: 'false',
-      Delete: 'false',
-    },
-    'Sync Bundles & Manifests': {
-      Create: 'false',
-      Read: 'false',
-      Update: 'false',
-      Delete: 'false',
-    },
-    'Mobile Client Offline Cache': {
-      Create: 'false',
-      Read: 'false',
-      Update: 'false',
-      Delete: 'false',
-    },
-    'Access & Tickets': { Create: 'false', Read: 'false', Update: 'false', Delete: 'false' },
-    'Park Configuration': { Create: 'false', Read: 'false', Update: 'false', Delete: 'false' },
-    'Staff & User Accounts': { Create: 'false', Read: 'false', Update: 'false', Delete: 'false' },
-    'Role-Based Access Control': {
-      Create: 'false',
-      Read: 'false',
-      Update: 'false',
-      Delete: 'false',
-    },
-    'Analytics & Visitor Telemetry': {
-      Create: 'false',
-      Read: 'false',
-      Update: 'false',
-      Delete: 'false',
-    },
+    landmarks: ['Read'],
+    floors: ['Read'],
+    viewpoints: ['Read'],
+    pedestrianRoutes: ['Read'],
+    languages: ['Read'],
   },
 };
 
-/**
- * Checks whether an RBAC rule allows modification (Create, Update, or Delete).
- * If the user only has Read permissions (or no permissions), returns false.
- */
-export const canModifyModule = (rbacItem?: RbacItem): boolean => {
-  if (!rbacItem) return false;
-  return rbacItem.Create === 'true' || rbacItem.Update === 'true' || rbacItem.Delete === 'true';
+export const normalizeRole = (role: string): RoleId => {
+  const normalized = role.toLowerCase().replace('-', '_');
+  return normalized === 'super_admin' || normalized === 'admin' || normalized === 'moderator'
+    ? normalized
+    : 'user';
 };
 
-/**
- * Returns default RBAC array for a given role.
- */
 export const getFallbackRbacForRole = (role: string): RbacItem[] => {
-  const normalized = role.toLowerCase().replace('-', '_');
-  const matrix = DEFAULT_ROLE_RBAC[normalized] || DEFAULT_ROLE_RBAC.user;
-
-  return ALL_SYSTEM_MODULES.map((moduleName) => {
-    const perm = matrix[moduleName] || {
-      Create: 'false',
-      Read: 'false',
-      Update: 'false',
-      Delete: 'false',
-    };
+  const normalized = normalizeRole(role);
+  return ADMIN_MODULES.map((module) => {
+    const allowed: readonly CrudAction[] =
+      normalized === 'super_admin' ? module.actions : (ROLE_ACTIONS[normalized][module.id] ?? []);
+    const flag = (action: CrudAction) => (allowed.includes(action) ? 'true' : 'false');
     return {
-      'module name': moduleName,
-      Create: perm.Create,
-      Read: perm.Read,
-      Update: perm.Update,
-      Delete: perm.Delete,
+      'module name': module.key,
+      Create: flag('Create'),
+      Read: flag('Read'),
+      Update: flag('Update'),
+      Delete: flag('Delete'),
     };
   });
 };
 
-/**
- * Resolves the effective RBAC list for the currently logged in user.
- */
 export const getEffectiveRbac = (user?: UserPayload | null): RbacItem[] => {
   if (!user) return [];
-
-  // 1. Direct rback array attached to the user payload or token
-  if (Array.isArray(user.rback) && user.rback.length > 0) {
-    return user.rback;
-  }
-
-  // 2. Fallback to default matrix based on user.userRole or user.role
-  const role = user.userRole || user.role || 'user';
-  return getFallbackRbacForRole(role);
+  const role = normalizeRole(user.userRole || user.role || 'user');
+  const defaults = getFallbackRbacForRole(role);
+  const saved = Array.isArray(user.rback) ? user.rback : [];
+  if (user.role.startsWith('CUSTOM_')) return saved;
+  const legacyPayload = saved.some((entry) => entry['module name'] === 'Audio Guides & Narration');
+  return ADMIN_MODULES.map((module, index) => {
+    const fallback = defaults[index];
+    const item = saved.find(
+      (entry) => entry['module name'].toLowerCase() === module.key.toLowerCase()
+    );
+    if (module.id === 'floorItinerary' && role === 'admin' && saved.length && !item) {
+      return {
+        'module name': module.key,
+        Create: 'false',
+        Read: 'false',
+        Update: 'false',
+        Delete: 'false',
+      };
+    }
+    const actions: readonly CrudAction[] = module.actions;
+    // Older server payloads mislabeled Admin account actions and Moderator analytics access.
+    const useDefault =
+      legacyPayload &&
+      ((module.id === 'users' && role === 'admin') ||
+        (module.id === 'analytics' && role === 'moderator'));
+    const flag = (action: CrudAction) =>
+      actions.includes(action)
+        ? (useDefault ? fallback : (item ?? fallback))[action] === 'true'
+          ? 'true'
+          : 'false'
+        : 'false';
+    return {
+      'module name': module.key,
+      Create: flag('Create'),
+      Read: flag('Read'),
+      Update: flag('Update'),
+      Delete: flag('Delete'),
+    };
+  });
 };
 
-/**
- * Determines if a specific module should appear in the navigation sidebar.
- * Requirement:
- * "if a user has don't have on a module ( except read ) : that module won't be appear in the sidebar.
- * ( if he can't do any modification ( create, edit, delete ) except read )"
- */
 export const isModuleVisibleInSidebar = (
   moduleName: string,
   user?: UserPayload | null
 ): boolean => {
-  if (!user) return false;
-
-  const rbacList = getEffectiveRbac(user);
-  const target = rbacList.find(
+  const target = getEffectiveRbac(user).find(
     (item) => item['module name'].toLowerCase() === moduleName.toLowerCase()
   );
-
-  return canModifyModule(target);
+  if (!target) return false;
+  if (['Analytics & Visitor Telemetry', 'Floor Itinerary'].includes(target['module name']))
+    return target.Read === 'true';
+  if (
+    ['Role-Based Access Control', 'Staff & User Accounts'].includes(target['module name']) &&
+    target.Read === 'true'
+  )
+    return true;
+  return target.Create === 'true' || target.Update === 'true' || target.Delete === 'true';
 };

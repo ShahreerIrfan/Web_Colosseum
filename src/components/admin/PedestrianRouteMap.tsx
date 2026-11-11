@@ -1,0 +1,162 @@
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import { useEffect, useRef } from 'react';
+import { COLOSSEUM_DEFAULT_COORDS } from './mapConstants';
+
+export type RoutePoint = { latitude: number; longitude: number };
+
+export function PedestrianRouteMap({
+  points,
+  onChange,
+  start,
+  end,
+  stops = [],
+  connections = [],
+}: {
+  points: RoutePoint[];
+  onChange?: (points: RoutePoint[]) => void;
+  start?: RoutePoint | null;
+  end?: RoutePoint | null;
+  stops?: { position: RoutePoint; label: string }[];
+  connections?: { points: RoutePoint[]; published: boolean }[];
+}) {
+  const container = useRef<HTMLDivElement>(null);
+  const layer = useRef<L.LayerGroup | null>(null);
+  const initialPoints = useRef([
+    ...stops.map(({ position }) => position),
+    ...(start ? [start] : []),
+    ...points,
+    ...(end ? [end] : []),
+  ]);
+  const latest = useRef({ points, onChange });
+  useEffect(() => {
+    latest.current = { points, onChange };
+  }, [points, onChange]);
+
+  useEffect(() => {
+    if (!container.current) return;
+    const map = L.map(container.current, {
+      center: [COLOSSEUM_DEFAULT_COORDS.lat, COLOSSEUM_DEFAULT_COORDS.lng],
+      zoom: 17,
+    });
+    L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+      subdomains: ['0', '1', '2', '3'],
+      attribution: 'Map data © Google',
+      maxZoom: 21,
+    }).addTo(map);
+    layer.current = L.layerGroup().addTo(map);
+    if (initialPoints.current.length > 0) {
+      map.fitBounds(
+        L.latLngBounds(
+          initialPoints.current.map(({ latitude, longitude }) => L.latLng(latitude, longitude))
+        ),
+        { padding: [28, 28], maxZoom: 18 }
+      );
+    }
+    map.on('click', ({ latlng }: L.LeafletMouseEvent) => {
+      const point = latlng.wrap();
+      latest.current.onChange?.([
+        ...latest.current.points,
+        {
+          latitude: point.lat,
+          longitude: point.lng,
+        },
+      ]);
+    });
+    const observer = new ResizeObserver(() => map.invalidateSize());
+    observer.observe(container.current);
+    return () => {
+      observer.disconnect();
+      layer.current = null;
+      map.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    const group = layer.current;
+    if (!group) return;
+    group.clearLayers();
+    for (const connection of connections) {
+      const line = connection.points.map(({ latitude, longitude }) =>
+        L.latLng(latitude, longitude)
+      );
+      const color = connection.published ? '#9c3426' : '#64748b';
+      L.polyline(line, {
+        color,
+        weight: 3,
+        dashArray: connection.published ? undefined : '6 5',
+      }).addTo(group);
+      const middle = Math.floor(line.length / 2);
+      if (middle > 0) {
+        const a = line[middle - 1];
+        const b = line[middle];
+        const angle = Math.atan2(
+          a.lat - b.lat,
+          (b.lng - a.lng) * Math.cos((a.lat * Math.PI) / 180)
+        );
+        L.marker([(a.lat + b.lat) / 2, (a.lng + b.lng) / 2], {
+          interactive: false,
+          icon: L.divIcon({
+            className: '',
+            iconSize: [16, 16],
+            html: `<span style="display:block;color:${color};transform:rotate(${angle}rad)">➤</span>`,
+          }),
+        }).addTo(group);
+      }
+    }
+    for (const { position, label } of stops) {
+      const tooltip = document.createElement('span');
+      tooltip.textContent = label;
+      L.circleMarker([position.latitude, position.longitude], {
+        radius: 6,
+        bubblingMouseEvents: false,
+      })
+        .bindTooltip(tooltip)
+        .addTo(group);
+    }
+    const path = [...(start ? [start] : []), ...points, ...(end ? [end] : [])];
+    L.polyline(
+      path.map(({ latitude, longitude }) => L.latLng(latitude, longitude)),
+      {
+        color: '#9c3426',
+        weight: 4,
+      }
+    ).addTo(group);
+    for (const [point, label] of [
+      [start, 'From'],
+      [end, 'To'],
+    ] as const) {
+      if (point)
+        L.circleMarker([point.latitude, point.longitude], { radius: 7 })
+          .bindTooltip(label)
+          .addTo(group);
+    }
+    points.forEach(({ latitude, longitude }, index) => {
+      const marker = L.marker([latitude, longitude], {
+        draggable: Boolean(onChange),
+        title: `Waypoint ${index + 1}`,
+        icon: L.divIcon({
+          className: 'rounded-full bg-primary text-primary-foreground text-center leading-6',
+          html: String(index + 1),
+          iconSize: [24, 24],
+        }),
+      }).addTo(group);
+      marker.on('dragend', () => {
+        const point = marker.getLatLng().wrap();
+        latest.current.onChange?.(
+          latest.current.points.map((previous, i) =>
+            i === index ? { latitude: point.lat, longitude: point.lng } : previous
+          )
+        );
+      });
+    });
+  }, [points, start, end, stops, connections, onChange]);
+
+  return (
+    <div
+      ref={container}
+      className="isolate h-80 rounded-md border"
+      aria-label="Walking route map"
+    />
+  );
+}

@@ -23,6 +23,7 @@ export interface UserPayload {
   email: string;
   role: UserRole;
   userRole?: string;
+  roleName?: string;
   rback?: RbacItem[];
   avatar?: string;
   token?: string;

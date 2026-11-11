@@ -1,6 +1,8 @@
 import { ProtectedLayout, PublicLayout } from '@/components/Layout';
 import AdminLogin from '@/pages/AdminLogin';
-import Dashboard from '@/pages/admin/Dashboard';
+import PedestrianRoutes from '@/pages/admin/PedestrianRoutes';
+import FloorItinerary from '@/pages/admin/FloorItinerary';
+import Languages from '@/pages/admin/Languages';
 import ErrorPage from '@/pages/admin/ErrorPage';
 import ModuleManagementView from '@/pages/admin/ModuleManagementView';
 import RoleManagement from '@/pages/admin/RoleManagement';
@@ -10,6 +12,7 @@ import Auth from '@/pages/Auth';
 import Landing from '@/pages/Landing';
 import LandmarkDetails from '@/pages/LandmarkDetails';
 import NotFound from '@/pages/NotFound';
+import PrivacyPolicy from '@/pages/PrivacyPolicy';
 import Profile from '@/pages/Profile';
 import Settings from '@/pages/Settings';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
@@ -18,6 +21,10 @@ export const router = createBrowserRouter([
   {
     path: '/',
     element: <Landing />,
+  },
+  {
+    path: '/privacy',
+    element: <PrivacyPolicy />,
   },
   {
     element: <PublicLayout />,
@@ -38,7 +45,7 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <Dashboard />,
+        lazy: async () => ({ Component: (await import('@/pages/admin/Dashboard')).default }),
       },
       {
         path: 'error',
@@ -55,8 +62,32 @@ export const router = createBrowserRouter([
       {
         path: 'users',
         element: (
-          <RbacGuard moduleName="Role-Based Access Control">
+          <RbacGuard moduleName="Staff & User Accounts">
             <UserManagement />
+          </RbacGuard>
+        ),
+      },
+      {
+        path: 'viewpoints/itinerary',
+        element: (
+          <RbacGuard moduleName="Floor Itinerary">
+            <FloorItinerary />
+          </RbacGuard>
+        ),
+      },
+      {
+        path: 'pedestrian-routes',
+        element: (
+          <RbacGuard moduleName="Pedestrian Street Routes">
+            <PedestrianRoutes />
+          </RbacGuard>
+        ),
+      },
+      {
+        path: 'languages',
+        element: (
+          <RbacGuard moduleName="Languages & Localization">
+            <Languages />
           </RbacGuard>
         ),
       },

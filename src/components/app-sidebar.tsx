@@ -2,26 +2,29 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarRail,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import { useSignOut } from '@/hooks/auth/useSignOut';
 import type { UserPayload } from '@/types/api/authTypes';
 import { getUserPayload } from '@/utils/localStorageUtils';
-import { isModuleVisibleInSidebar } from '@/utils/rbacUtils';
+import { ADMIN_MODULES, isModuleVisibleInSidebar } from '@/utils/rbacUtils';
 import {
+  ChevronDown,
   Eye,
   Globe,
   Landmark,
   Layers,
   LayoutDashboard,
   LogOut,
+  Route,
   ShieldCheck,
   UserCog,
   Lock,
@@ -36,54 +39,40 @@ interface NavModuleItem {
   icon: React.ComponentType<{ className?: string }>;
 }
 
-const ALL_NAV_MODULES: NavModuleItem[] = [
-  {
-    title: 'Dashboard',
-    moduleName: 'Analytics & Visitor Telemetry',
-    url: '/admin/dashboard',
-    icon: LayoutDashboard,
-  },
-  {
-    title: 'Role Management',
-    moduleName: 'Role-Based Access Control',
-    url: '/admin/dashboard/rbac',
-    icon: ShieldCheck,
-  },
-  {
-    title: 'Monuments & Sites',
-    moduleName: 'Monuments & Landmarks',
-    url: '/admin/dashboard/landmarks',
-    icon: Landmark,
-  },
-  {
-    title: 'Floor Maps',
-    moduleName: 'Vector Floor Maps',
-    url: '/admin/dashboard/floors',
-    icon: Layers,
-  },
-  {
-    title: 'Viewpoints',
-    moduleName: 'Viewpoint Hotspots',
-    url: '/admin/dashboard/viewpoints',
-    icon: Eye,
-  },
-  {
-    title: 'Languages',
-    moduleName: 'Languages & Localization',
-    url: '/admin/dashboard/languages',
-    icon: Globe,
-  },
-  {
-    title: 'Users',
-    moduleName: 'Role-Based Access Control',
-    url: '/admin/dashboard/users',
-    icon: UserCog,
-  },
+type ModuleId = (typeof ADMIN_MODULES)[number]['id'];
+
+const navTargets: Record<ModuleId, Pick<NavModuleItem, 'url' | 'icon'>> = {
+  analytics: { url: '/admin/dashboard', icon: LayoutDashboard },
+  landmarks: { url: '/admin/dashboard/landmarks', icon: Landmark },
+  floors: { url: '/admin/dashboard/floors', icon: Layers },
+  viewpoints: { url: '/admin/dashboard/viewpoints', icon: Eye },
+  floorItinerary: { url: '/admin/dashboard/viewpoints/itinerary', icon: Route },
+  pedestrianRoutes: { url: '/admin/dashboard/pedestrian-routes', icon: Route },
+  rbac: { url: '/admin/dashboard/rbac', icon: ShieldCheck },
+  users: { url: '/admin/dashboard/users', icon: UserCog },
+  languages: { url: '/admin/dashboard/languages', icon: Globe },
+};
+
+const navigation = ADMIN_MODULES.map(({ id, name, key }) => ({
+  id,
+  title: name,
+  moduleName: key,
+  ...navTargets[id],
+}));
+const touristSpotIds: readonly ModuleId[] = [
+  'landmarks',
+  'floors',
+  'viewpoints',
+  'floorItinerary',
+  'pedestrianRoutes',
 ];
 
 export const AppSidebar: React.FC = () => {
   const location = useLocation();
   const { signOut, loading: signingOut } = useSignOut();
+  const { isMobile, open, setOpen } = useSidebar();
+  const [touristSpotsOpen, setTouristSpotsOpen] = useState(true);
+  const [viewpointOpen, setViewpointOpen] = useState(true);
 
   const [user, setUser] = useState<UserPayload | null>(() => {
     try {
@@ -112,11 +101,43 @@ export const AppSidebar: React.FC = () => {
     };
   }, []);
 
-  // Filter modules: ONLY appear if user has modification permissions (Create, Update, or Delete).
-  // If the user has don't have on a module (except read), that module won't appear in the sidebar.
-  const visibleNavItems = ALL_NAV_MODULES.filter((item) =>
-    isModuleVisibleInSidebar(item.moduleName, user)
+  const canSee = (item: NavModuleItem) => isModuleVisibleInSidebar(item.moduleName, user);
+  const visible = navigation.filter(canSee);
+  const dashboard = visible.find(({ id }) => id === 'analytics');
+  const touristSpots = visible.filter(({ id }) => touristSpotIds.includes(id));
+  const viewpointItems = touristSpots.filter(
+    ({ id }) => id === 'viewpoints' || id === 'floorItinerary'
   );
+  const managementItems = visible.filter(
+    ({ id }) => id !== 'analytics' && !touristSpotIds.includes(id)
+  );
+  const sidebarExpanded = isMobile || open;
+  const roleCode = user?.role || user?.userRole || 'SUPER_ADMIN';
+  const roleName =
+    user?.roleName ||
+    (roleCode.toUpperCase().startsWith('CUSTOM_')
+      ? 'Custom role'
+      : roleCode
+          .toLowerCase()
+          .split('_')
+          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' '));
+  const touristSpotsExpanded = sidebarExpanded && touristSpotsOpen;
+  const touristSpotActive = touristSpots.some((item) => location.pathname === item.url);
+
+  const renderLink = (item: NavModuleItem) => {
+    const isActive = location.pathname === item.url;
+    return (
+      <SidebarMenuItem key={item.url}>
+        <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
+          <Link to={item.url} aria-current={isActive ? 'page' : undefined}>
+            <item.icon className="size-4 shrink-0" />
+            <span className="truncate">{item.title}</span>
+          </Link>
+        </SidebarMenuButton>
+      </SidebarMenuItem>
+    );
+  };
 
   return (
     <Sidebar collapsible="icon">
@@ -142,46 +163,110 @@ export const AppSidebar: React.FC = () => {
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <div className="flex items-center justify-between px-2 pb-1">
-            <SidebarGroupLabel className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-              Management Modules
-            </SidebarGroupLabel>
-            <span className="text-[10px] font-mono text-muted-foreground opacity-70">
-              {visibleNavItems.length} Active
-            </span>
-          </div>
-
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {visibleNavItems.length === 0 ? (
-                <div className="px-3 py-6 text-center text-xs text-muted-foreground flex flex-col items-center gap-2 group-data-[collapsible=icon]:hidden">
-                  <Lock className="size-4 text-muted-foreground opacity-50" />
-                  <p className="font-medium">No Modifiable Modules</p>
-                  <p className="text-[11px] opacity-70">
-                    Read-only account. You do not have create, edit, or delete access to management
-                    modules.
-                  </p>
-                </div>
-              ) : (
-                visibleNavItems.map((item) => {
+        <SidebarMenu>
+          {visible.length === 0 && (
+            <SidebarMenuItem className="px-3 py-6 text-center text-xs text-muted-foreground flex flex-col items-center gap-2 group-data-[collapsible=icon]:hidden">
+              <Lock className="size-4 text-muted-foreground opacity-50" />
+              <p className="font-medium">No management pages</p>
+              <p className="text-[11px] opacity-70">
+                Read-only account. You do not have create, edit, or delete access to the management
+                pages.
+              </p>
+            </SidebarMenuItem>
+          )}
+          {dashboard && renderLink(dashboard)}
+          {touristSpots.length > 0 && (
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                type="button"
+                tooltip="Tourist Spots"
+                isActive={touristSpotActive}
+                aria-expanded={touristSpotsExpanded}
+                aria-controls="tourist-spots-menu"
+                onClick={() => {
+                  if (!sidebarExpanded) {
+                    setOpen(true);
+                    setTouristSpotsOpen(true);
+                  } else {
+                    setTouristSpotsOpen((expanded) => !expanded);
+                  }
+                }}
+              >
+                <Landmark className="size-4 shrink-0" />
+                <span>Tourist Spots</span>
+                <ChevronDown
+                  className={`ml-auto size-4 transition-transform ${touristSpotsExpanded ? 'rotate-180' : ''}`}
+                />
+              </SidebarMenuButton>
+              <SidebarMenuSub id="tourist-spots-menu" hidden={!touristSpotsExpanded}>
+                {touristSpots.map((item) => {
+                  if (viewpointItems.includes(item)) {
+                    if (item !== viewpointItems[0]) return null;
+                    return (
+                      <SidebarMenuSubItem key="viewpoint-group">
+                        <SidebarMenuSubButton
+                          asChild
+                          isActive={viewpointItems.some(({ url }) => location.pathname === url)}
+                        >
+                          <button
+                            type="button"
+                            className="w-full"
+                            aria-expanded={viewpointOpen}
+                            aria-controls="viewpoint-menu"
+                            onClick={() => setViewpointOpen((value) => !value)}
+                          >
+                            <Eye />
+                            <span>Viewpoint</span>
+                            <ChevronDown
+                              className={`ml-auto ${viewpointOpen ? 'rotate-180' : ''}`}
+                            />
+                          </button>
+                        </SidebarMenuSubButton>
+                        <SidebarMenuSub
+                          id="viewpoint-menu"
+                          className={viewpointOpen ? undefined : 'hidden'}
+                        >
+                          {viewpointItems.map((child) => (
+                            <SidebarMenuSubItem key={child.url}>
+                              <SidebarMenuSubButton
+                                asChild
+                                isActive={location.pathname === child.url}
+                              >
+                                <Link
+                                  to={child.url}
+                                  aria-current={
+                                    location.pathname === child.url ? 'page' : undefined
+                                  }
+                                >
+                                  <child.icon />
+                                  <span>
+                                    {child.id === 'viewpoints' ? 'Manage Viewpoints' : child.title}
+                                  </span>
+                                </Link>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          ))}
+                        </SidebarMenuSub>
+                      </SidebarMenuSubItem>
+                    );
+                  }
                   const isActive = location.pathname === item.url;
-
                   return (
-                    <SidebarMenuItem key={item.url}>
-                      <SidebarMenuButton asChild isActive={isActive} tooltip={item.title}>
-                        <Link to={item.url}>
-                          <item.icon className="size-4 shrink-0" />
-                          <span className="truncate">{item.title}</span>
+                    <SidebarMenuSubItem key={item.url}>
+                      <SidebarMenuSubButton asChild isActive={isActive}>
+                        <Link to={item.url} aria-current={isActive ? 'page' : undefined}>
+                          <item.icon />
+                          <span>{item.title}</span>
                         </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
                   );
-                })
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+                })}
+              </SidebarMenuSub>
+            </SidebarMenuItem>
+          )}
+          {managementItems.map(renderLink)}
+        </SidebarMenu>
       </SidebarContent>
 
       <SidebarFooter>
@@ -196,8 +281,11 @@ export const AppSidebar: React.FC = () => {
                 <span className="text-xs font-bold text-sidebar-foreground truncate leading-tight">
                   {user?.name || 'Administrator'}
                 </span>
-                <span className="text-[10px] text-muted-foreground truncate uppercase font-semibold">
-                  {user?.userRole || user?.role || 'SUPER_ADMIN'}
+                <span
+                  className="text-[10px] text-muted-foreground truncate font-semibold"
+                  title={roleName}
+                >
+                  {roleName}
                 </span>
               </div>
             </div>

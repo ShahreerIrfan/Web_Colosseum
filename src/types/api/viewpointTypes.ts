@@ -9,8 +9,6 @@ export interface ViewpointModel {
   latitude: number | null;
   longitude: number | null;
   imageAsset?: string;
-  audioUrl?: string;
-  audioDuration?: string;
   isVisited?: boolean;
   triggerRadiusMeters?: number;
   targetGazeHeadingDegrees?: number | null;
@@ -30,8 +28,6 @@ export interface CreateViewpointInput {
   latitude?: number | null;
   longitude?: number | null;
   imageAsset?: string;
-  audioUrl?: string;
-  audioDuration?: string;
   triggerRadiusMeters?: number;
   targetGazeHeadingDegrees?: number | null;
   isPublished?: boolean;

@@ -1,5 +1,12 @@
 import { Button } from '@/components/ui/button';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -32,7 +39,7 @@ export interface CreateFloorDialogProps {
   onUpdated?: (floor: FloorModel) => void;
   landmarkOptions?: Array<{ code: string; name: string }>;
   defaultLandmarkCode?: string;
-  onSubmitFloor?: (payload: CreateFloorInput) => Promise<FloorModel>;
+  onSubmitFloor: (payload: CreateFloorInput) => Promise<FloorModel>;
 }
 
 const TIER_OPTIONS = [
@@ -61,6 +68,7 @@ export const CreateFloorDialog: React.FC<CreateFloorDialogProps> = ({
 }) => {
   const { showSuccess, showError } = useToast();
   const publishId = useId();
+  const landmarkSelectId = useId();
   const isEditMode = Boolean(floorToEdit);
 
   // Form State
@@ -94,13 +102,13 @@ export const CreateFloorDialog: React.FC<CreateFloorDialogProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Helper to slugify floor ID based on level index and name
-  const slugify = (name: string, level: number) => {
-    if (level < 0) return 'floor_underground';
+  const slugify = (name: string, level: number, landmark = landmarkCode) => {
     const clean = name
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '_')
       .replace(/^_+|_+$/g, '');
-    return clean ? `floor_${clean}` : `floor_${level}`;
+    const prefix = landmark.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+    return `${prefix}_${clean || (level < 0 ? 'underground' : `floor_${level}`)}`;
   };
 
   const handleDisplayNameChange = (val: string) => {
@@ -116,16 +124,16 @@ export const CreateFloorDialog: React.FC<CreateFloorDialogProps> = ({
 
   const handleLevelIndexChange = (val: number) => {
     setLevelIndex(val);
-    if (val < 0) {
-      setFloorNumberLabel('Underground');
-      if (!isSlugCustomized) {
-        setFloorId('floor_underground');
-      }
-    } else {
-      setFloorNumberLabel(`Floor ${val}`);
-      if (!isSlugCustomized) {
-        setFloorId(`floor_${val}`);
-      }
+    setFloorNumberLabel(val < 0 ? 'Underground' : `Floor ${val}`);
+    if (!isSlugCustomized) {
+      setFloorId(slugify(displayName, val));
+    }
+  };
+
+  const handleLandmarkChange = (code: string) => {
+    setLandmarkCode(code);
+    if (!isSlugCustomized) {
+      setFloorId(slugify(displayName, levelIndex, code));
     }
   };
 
@@ -260,26 +268,9 @@ export const CreateFloorDialog: React.FC<CreateFloorDialogProps> = ({
 
     try {
       setIsSubmitting(true);
-      if (onSubmitFloor) {
-        const saved = await onSubmitFloor(payload);
-        if (isEditMode && onUpdated) {
-          onUpdated(saved);
-        } else if (onCreated) {
-          onCreated(saved);
-        }
-      } else {
-        const fallbackModel: FloorModel = {
-          id: finalFloorId,
-          ...payload,
-          viewpointCount: floorToEdit?.viewpointCount ?? 0,
-          updatedAt: new Date().toISOString(),
-        };
-        if (isEditMode && onUpdated) {
-          onUpdated(fallbackModel);
-        } else if (onCreated) {
-          onCreated(fallbackModel);
-        }
-      }
+      const saved = await onSubmitFloor(payload);
+      if (isEditMode) onUpdated?.(saved);
+      else onCreated?.(saved);
 
       showSuccess(
         isEditMode ? 'Floor Map Updated' : 'Floor Map Created',
@@ -396,20 +387,24 @@ export const CreateFloorDialog: React.FC<CreateFloorDialogProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-foreground mb-1">
+                    <label
+                      htmlFor={landmarkSelectId}
+                      className="block text-xs font-medium text-foreground mb-1"
+                    >
                       Associated Landmark <span className="text-destructive">*</span>
                     </label>
-                    <select
-                      value={landmarkCode}
-                      onChange={(e) => setLandmarkCode(e.target.value)}
-                      className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary cursor-pointer"
-                    >
-                      {landmarkOptions.map((opt) => (
-                        <option key={opt.code} value={opt.code}>
-                          {opt.name} ({opt.code})
-                        </option>
-                      ))}
-                    </select>
+                    <Select value={landmarkCode} onValueChange={handleLandmarkChange}>
+                      <SelectTrigger id={landmarkSelectId} className="w-full">
+                        <SelectValue placeholder="Select a Landmark" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {landmarkOptions.map((opt) => (
+                          <SelectItem key={opt.code} value={opt.code}>
+                            {opt.name} ({opt.code})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
@@ -437,7 +432,7 @@ export const CreateFloorDialog: React.FC<CreateFloorDialogProps> = ({
                     <input
                       type="text"
                       required
-                      placeholder="e.g. floor_underground"
+                      placeholder="e.g. ludus_magnus_lower_level"
                       value={floorId}
                       onChange={(e) => {
                         setIsSlugCustomized(true);

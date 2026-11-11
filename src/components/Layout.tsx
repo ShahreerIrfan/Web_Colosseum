@@ -1,13 +1,49 @@
 import AppSidebar from '@/components/app-sidebar';
+import authApi from '@/apis/auth/authApi';
+import Spinner from '@/components/common/Spinner';
 import { Separator } from '@/components/ui/separator';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
-import { isAuthenticated } from '@/utils/localStorageUtils';
-import React from 'react';
+import { getUserPayload, isAuthenticated, setUserPayload } from '@/utils/localStorageUtils';
+import React, { useEffect, useState } from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 
 export const ProtectedLayout: React.FC = () => {
-  if (!isAuthenticated()) {
+  const authenticated = isAuthenticated();
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    if (!authenticated) return;
+    let active = true;
+    const refresh = () => {
+      const session = getUserPayload();
+      authApi
+        .getMe()
+        .then((profile) => {
+          if (!active || getUserPayload().id !== session.id) return;
+          setUserPayload({ ...session, ...profile });
+          window.dispatchEvent(new Event('rbac-updated'));
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (active) setReady(true);
+        });
+    };
+    refresh();
+    window.addEventListener('focus', refresh);
+    return () => {
+      active = false;
+      window.removeEventListener('focus', refresh);
+    };
+  }, [authenticated]);
+
+  if (!authenticated) {
     return <Navigate to="/admin" replace />;
+  }
+  if (!ready) {
+    return (
+      <div className="grid min-h-dvh place-items-center bg-background p-6">
+        <Spinner size="lg" label="Loading…" />
+      </div>
+    );
   }
 
   return (

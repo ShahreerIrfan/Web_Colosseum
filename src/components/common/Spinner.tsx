@@ -18,9 +18,17 @@ const sizeClasses = {
 export const Spinner: React.FC<SpinnerProps> = ({ size = 'md', className, label }) => {
   return (
     <div className="flex flex-col items-center justify-center gap-2" role="status">
-      <Loader2 className={cn('animate-spin text-primary shrink-0', sizeClasses[size], className)} />
-      {label && <span className="text-xs text-muted-foreground">{label}</span>}
-      <span className="sr-only">Loading...</span>
+      <Loader2
+        aria-hidden="true"
+        className={cn(
+          'motion-safe:animate-spin text-primary shrink-0',
+          sizeClasses[size],
+          className
+        )}
+      />
+      <span className={label ? 'text-sm text-muted-foreground' : 'sr-only'}>
+        {label ?? 'Loading…'}
+      </span>
     </div>
   );
 };

@@ -132,15 +132,15 @@ export const LocationPickerMap: React.FC<LocationPickerMapProps> = ({
 
     // Only set view if coordinates moved noticeably (avoid jitter loop)
     if (diffLat > 0.000005 || diffLng > 0.000005) {
+      const wasProgrammatic = isProgrammaticMoveRef.current;
       isProgrammaticMoveRef.current = true;
-      mapRef.current.setView([parsedLat, parsedLng], mapRef.current.getZoom(), {
-        animate: true,
-      });
-
-      const timer = setTimeout(() => {
-        isProgrammaticMoveRef.current = false;
-      }, 300);
-      return () => clearTimeout(timer);
+      try {
+        mapRef.current.setView([parsedLat, parsedLng], mapRef.current.getZoom(), {
+          animate: false,
+        });
+      } finally {
+        isProgrammaticMoveRef.current = wasProgrammatic;
+      }
     }
   }, [latitude, longitude]);
 

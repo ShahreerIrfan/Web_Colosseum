@@ -132,7 +132,9 @@ export const Footer: React.FC<FooterProps> = ({ onCopyApkLink, onVerifyTicket })
             <span>•</span>
             <span className="hover:text-foreground cursor-pointer">Offline Audio License</span>
             <span>•</span>
-            <span className="hover:text-foreground cursor-pointer">Privacy Policy</span>
+            <Link className="hover:text-foreground" to="/privacy">
+              Privacy Policy
+            </Link>
             <span>•</span>
             <span className="hover:text-foreground cursor-pointer">Terms of Service</span>
           </div>

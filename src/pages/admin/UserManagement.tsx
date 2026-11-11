@@ -1,5 +1,16 @@
 import authApi from '@/apis/auth/authApi';
+import { isAxiosError } from 'axios';
+import { validateNewUser } from '@/utils/userValidation';
+import ModuleLoading from '@/components/admin/ModuleLoading';
+import { roleApi, type ManagedRole } from '@/apis/auth/roleApi';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -18,13 +29,15 @@ import {
 import { Input } from '@/components/ui/input';
 import useToast from '@/hooks/component/useToast';
 import type { ManagedUser, UserPayload } from '@/types/api/authTypes';
-import { getUserPayload } from '@/utils/localStorageUtils';
-import { getFallbackRbacForRole } from '@/utils/rbacUtils';
+import { getUserPayload, setUserPayload } from '@/utils/localStorageUtils';
+import { getEffectiveRbac } from '@/utils/rbacUtils';
 import {
   AlertTriangle,
   Check,
   ChevronDown,
   Copy,
+  Eye,
+  EyeOff,
   Mail,
   Pencil,
   RefreshCw,
@@ -39,7 +52,7 @@ import {
 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
-type SystemRole = 'SUPER_ADMIN' | 'ADMIN' | 'MODERATOR' | 'USER';
+type SystemRole = string;
 
 interface RoleOption {
   role: SystemRole;
@@ -92,6 +105,11 @@ const AVAILABLE_ROLES: RoleOption[] = [
 
 export const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<ManagedUser[]>([]);
+  const [availableRoles, setAvailableRoles] = useState<ManagedRole[]>([]);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createForm, setCreateForm] = useState({ name: '', email: '', password: '', role: 'USER' });
   const [loading, setLoading] = useState<boolean>(true);
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -128,7 +146,88 @@ export const UserManagement: React.FC = () => {
     }
   }, []);
 
+  const actorPermissions = getEffectiveRbac(currentUser);
+  const permissions = actorPermissions.find(
+    (row) => row['module name'] === 'Staff & User Accounts'
+  );
+  const canRead = permissions?.Read === 'true';
+  const canCreate = permissions?.Create === 'true';
+  const canUpdate = permissions?.Update === 'true';
+  const canDelete = permissions?.Delete === 'true';
+
+  useEffect(() => {
+    if (!canCreate && !canUpdate) return;
+    let active = true;
+    roleApi
+      .list()
+      .then((roles) => {
+        if (active) setAvailableRoles(roles);
+      })
+      .catch((error: Error) => {
+        if (active) showError('Unable to load roles', error.message);
+      });
+    return () => {
+      active = false;
+    };
+  }, [canCreate, canUpdate, showError]);
+
+  const assignableRoles = availableRoles.filter(({ id, builtIn, permissions: rolePermissions }) => {
+    if (currentUser?.role === 'SUPER_ADMIN') return true;
+    if (builtIn) return id === 'USER' || (id === 'MODERATOR' && currentUser?.role === 'ADMIN');
+    return rolePermissions.every((row) => {
+      const own = actorPermissions.find((item) => item['module name'] === row['module name']);
+      return (['Create', 'Read', 'Update', 'Delete'] as const).every(
+        (action) => row[action] !== 'true' || own?.[action] === 'true'
+      );
+    });
+  });
+  const roleOptions: RoleOption[] = assignableRoles.map(({ id, name }) => {
+    const builtIn = AVAILABLE_ROLES.find((role) => role.role === id);
+    return (
+      builtIn ?? {
+        ...AVAILABLE_ROLES[3],
+        role: id,
+        label: name,
+        badge: 'Custom role',
+        description: '',
+      }
+    );
+  });
+
+  const handleCreate = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!canCreate || creating) return;
+    const payload = { ...createForm, name: createForm.name.trim(), email: createForm.email.trim() };
+    const validationError = validateNewUser(payload);
+    if (validationError) {
+      showError('Unable to create user', validationError);
+      return;
+    }
+    setCreating(true);
+    try {
+      const user = await authApi.createUser({ ...payload, name: payload.name || undefined });
+      if (canRead) setUsers((previous) => [user, ...previous]);
+      setCreateOpen(false);
+      setShowPassword(false);
+      setCreateForm({ name: '', email: '', password: '', role: 'USER' });
+      showSuccess('User created', user.name);
+    } catch (error) {
+      showError(
+        'Unable to create user',
+        isAxiosError<{ message?: string }>(error)
+          ? (error.response?.data?.message ?? error.message)
+          : (error as Error).message
+      );
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const fetchUsers = useCallback(async () => {
+    if (!canRead) {
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       const userList = await authApi.getAllUsers();
@@ -139,14 +238,14 @@ export const UserManagement: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [showError]);
+  }, [canRead, showError]);
 
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
 
   const handleRoleChange = async (user: ManagedUser, newRole: SystemRole) => {
-    if (user.role.toUpperCase() === newRole) return;
+    if (!canUpdate || user.id === currentUser?.id || user.role === newRole) return;
 
     // Safeguard: Prevent accidental demotion of the primary administrator
     if (
@@ -169,28 +268,11 @@ export const UserManagement: React.FC = () => {
       // Update state locally
       setUsers((prev) => prev.map((u) => (u.id === user.id ? { ...u, role: newRole } : u)));
 
-      const targetRoleDef = AVAILABLE_ROLES.find((r) => r.role === newRole);
+      const targetRoleDef = roleOptions.find((r) => r.role === newRole);
       showSuccess(
         'Role Updated Successfully',
         `Changed role for "${user.name}" to ${targetRoleDef?.label || newRole}.`
       );
-
-      // If updating the currently logged-in user, update session payload so sidebar dynamically reacts
-      if (
-        currentUser &&
-        (currentUser.id === user.id || currentUser.email.toLowerCase() === user.email.toLowerCase())
-      ) {
-        const normalizedRole = newRole.toLowerCase();
-        const updatedPayload: UserPayload = {
-          ...currentUser,
-          role: newRole,
-          userRole: normalizedRole,
-          rback: getFallbackRbacForRole(normalizedRole),
-        };
-        localStorage.setItem('colosseum_user_payload', JSON.stringify(updatedPayload));
-        window.dispatchEvent(new Event('rbac-updated'));
-        showInfo('Session Synchronized', `Your active administrative privileges are now updated.`);
-      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Could not update user role';
       showError('Update Failed', message);
@@ -204,7 +286,7 @@ export const UserManagement: React.FC = () => {
     setModalForm({
       name: user.name,
       email: user.email,
-      role: (user.role.toUpperCase() as SystemRole) || 'USER',
+      role: user.role || 'USER',
       is_active: user.is_active !== undefined ? user.is_active : true,
       assignedFloorIds: user.assignedFloorIds || [],
     });
@@ -220,7 +302,7 @@ export const UserManagement: React.FC = () => {
   };
 
   const handleSaveModalUser = async () => {
-    if (!selectedUser) return;
+    if (!canUpdate || !selectedUser) return;
     if (!modalForm.name.trim() || !modalForm.email.trim()) {
       showError('Validation Error', 'Name and email are required.');
       return;
@@ -259,22 +341,8 @@ export const UserManagement: React.FC = () => {
         `Account details for "${modalForm.name}" updated successfully.`
       );
 
-      // If updating currently logged in user
-      if (
-        currentUser &&
-        (currentUser.id === selectedUser.id ||
-          currentUser.email.toLowerCase() === selectedUser.email.toLowerCase())
-      ) {
-        const normalizedRole = modalForm.role.toLowerCase();
-        const updatedPayload: UserPayload = {
-          ...currentUser,
-          name: modalForm.name.trim(),
-          email: modalForm.email.trim().toLowerCase(),
-          role: modalForm.role,
-          userRole: normalizedRole,
-          rback: getFallbackRbacForRole(normalizedRole),
-        };
-        localStorage.setItem('colosseum_user_payload', JSON.stringify(updatedPayload));
+      if (currentUser?.id === selectedUser.id) {
+        setUserPayload({ ...currentUser, name: updated.name, email: updated.email });
         window.dispatchEvent(new Event('rbac-updated'));
       }
 
@@ -293,15 +361,12 @@ export const UserManagement: React.FC = () => {
   };
 
   const handleConfirmDelete = async () => {
-    if (!userToDelete) return;
+    if (!canDelete || !userToDelete) return;
     try {
       setIsDeleting(true);
       await authApi.deleteUser(userToDelete.id);
       setUsers((prev) => prev.filter((u) => u.id !== userToDelete.id));
-      showSuccess(
-        'User Deleted',
-        `Account for "${userToDelete.name}" has been permanently removed.`
-      );
+      showSuccess('User Deleted', `Account for "${userToDelete.name}" has been removed.`);
       setIsDeleteModalOpen(false);
       setUserToDelete(null);
     } catch (err: unknown) {
@@ -336,11 +401,13 @@ export const UserManagement: React.FC = () => {
   }, [users]);
 
   const getRoleDef = (roleName: string): RoleOption => {
-    const normalized = roleName.toUpperCase();
+    const normalized = roleName.startsWith('CUSTOM_') ? roleName : roleName.toUpperCase();
     return (
       AVAILABLE_ROLES.find((r) => r.role === normalized) || {
         role: 'USER',
-        label: roleName,
+        label:
+          availableRoles.find(({ id }) => id === normalized)?.name ??
+          (normalized.startsWith('CUSTOM_') ? 'Custom role' : roleName),
         badge: 'Custom',
         description: 'Standard role',
         icon: User,
@@ -349,6 +416,8 @@ export const UserManagement: React.FC = () => {
       }
     );
   };
+
+  if (loading) return <ModuleLoading />;
 
   return (
     <div className="flex-1 bg-background text-foreground space-y-8 max-w-6xl mx-auto w-full pb-12">
@@ -361,11 +430,16 @@ export const UserManagement: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2.5">
+          {canCreate && (
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              New user
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
             onClick={fetchUsers}
-            disabled={loading}
+            disabled={loading || !canRead}
             className="gap-2 cursor-pointer border-border hover:bg-muted"
           >
             <RefreshCw className={`size-3.5 ${loading ? 'animate-spin' : ''}`} />
@@ -458,16 +532,7 @@ export const UserManagement: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-border text-sm">
-              {loading ? (
-                <tr>
-                  <td colSpan={3} className="py-12 text-center text-muted-foreground">
-                    <div className="flex items-center justify-center gap-2">
-                      <RefreshCw className="size-4 animate-spin text-primary" />
-                      <span>Loading user accounts...</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : filteredUsers.length === 0 ? (
+              {filteredUsers.length === 0 ? (
                 <tr>
                   <td colSpan={3} className="py-12 text-center text-muted-foreground">
                     <p className="text-sm">No users found matching your search filter.</p>
@@ -498,6 +563,7 @@ export const UserManagement: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleOpenUserModal(userItem)}
+                            disabled={!canUpdate}
                             className="flex size-9 items-center justify-center rounded-full bg-primary/10 text-primary font-bold text-xs shrink-0 cursor-pointer hover:ring-2 hover:ring-primary/40 hover:scale-105 transition-all"
                             title={`Click to view ${userItem.name}'s profile`}
                           >
@@ -533,7 +599,7 @@ export const UserManagement: React.FC = () => {
                             <Button
                               variant="outline"
                               size="sm"
-                              disabled={isUpdating}
+                              disabled={isUpdating || !canUpdate || Boolean(isCurrentLoggedUser)}
                               className="h-9 px-3 gap-2.5 bg-card hover:bg-secondary border-border font-medium min-w-[170px] justify-between cursor-pointer shadow-xs"
                             >
                               <div className="flex items-center gap-2 truncate">
@@ -558,9 +624,9 @@ export const UserManagement: React.FC = () => {
                               Select Role for {userItem.name}
                             </DropdownMenuLabel>
                             <DropdownMenuSeparator className="bg-border" />
-                            {AVAILABLE_ROLES.map((roleOpt) => {
+                            {roleOptions.map((roleOpt) => {
                               const OptIcon = roleOpt.icon;
-                              const isSelected = userItem.role.toUpperCase() === roleOpt.role;
+                              const isSelected = userItem.role === roleOpt.role;
 
                               return (
                                 <DropdownMenuItem
@@ -611,7 +677,7 @@ export const UserManagement: React.FC = () => {
                             variant="outline"
                             size="sm"
                             onClick={() => handleOpenDeleteModal(userItem)}
-                            disabled={Boolean(isCurrentLoggedUser)}
+                            disabled={!canDelete || Boolean(isCurrentLoggedUser)}
                             className="size-8 p-0 rounded-lg border-destructive/20 hover:border-destructive/40 bg-destructive/5 hover:bg-destructive/15 text-destructive cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed focus-visible:ring-0 focus-visible:outline-none"
                             title={
                               isCurrentLoggedUser
@@ -631,6 +697,106 @@ export const UserManagement: React.FC = () => {
           </table>
         </div>
       </div>
+
+      <Dialog
+        open={createOpen}
+        onOpenChange={(open) => {
+          if (!creating) {
+            setCreateOpen(open);
+            if (!open) {
+              setShowPassword(false);
+              setCreateForm({ name: '', email: '', password: '', role: 'USER' });
+            }
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New user</DialogTitle>
+          </DialogHeader>
+          <form className="grid gap-4" noValidate onSubmit={handleCreate}>
+            <label className="grid gap-1 text-sm">
+              Name (optional)
+              <Input
+                minLength={2}
+                autoComplete="off"
+                value={createForm.name}
+                onChange={(event) => setCreateForm({ ...createForm, name: event.target.value })}
+              />
+            </label>
+            <label className="grid gap-1 text-sm">
+              Email
+              <Input
+                required
+                type="email"
+                autoComplete="off"
+                value={createForm.email}
+                onChange={(event) => setCreateForm({ ...createForm, email: event.target.value })}
+              />
+            </label>
+            <div className="grid gap-1 text-sm">
+              <label htmlFor="new-user-password">Initial password</label>
+              <div className="relative">
+                <Input
+                  id="new-user-password"
+                  required
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  minLength={8}
+                  maxLength={32}
+                  className="pr-10"
+                  aria-describedby="new-user-password-help"
+                  value={createForm.password}
+                  onChange={(event) =>
+                    setCreateForm({ ...createForm, password: event.target.value })
+                  }
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0 top-0 h-full w-10"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-pressed={showPassword}
+                  onClick={() => setShowPassword((visible) => !visible)}
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </Button>
+              </div>
+              <span id="new-user-password-help" className="text-xs text-muted-foreground">
+                Use 8–32 characters with at least one uppercase letter (A–Z), one lowercase letter
+                (a–z), one number (0–9), and one special character (for example, @, # or !).
+              </span>
+            </div>
+            <label htmlFor="new-user-role" className="grid gap-1 text-sm">
+              Role
+              <Select
+                value={createForm.role}
+                onValueChange={(role) => setCreateForm({ ...createForm, role })}
+              >
+                <SelectTrigger id="new-user-role" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {!roleOptions.some(({ role }) => role === 'USER') && (
+                    <SelectItem value="USER">User</SelectItem>
+                  )}
+                  {roleOptions.map(({ role, label }) => (
+                    <SelectItem key={role} value={role}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+            <DialogFooter>
+              <Button type="submit" disabled={creating}>
+                Create account
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* User Information Modal Dialog */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
@@ -753,7 +919,7 @@ export const UserManagement: React.FC = () => {
                       Select System Role
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator className="bg-border" />
-                    {AVAILABLE_ROLES.map((r) => {
+                    {roleOptions.map((r) => {
                       const isSelected = modalForm.role === r.role;
                       const RoleIcon = r.icon;
                       return (
@@ -921,9 +1087,9 @@ export const UserManagement: React.FC = () => {
 
           <div className="py-3 space-y-3">
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Are you sure you want to permanently delete{' '}
-              <span className="font-bold text-foreground">{userToDelete?.name}</span>? This action
-              cannot be undone and will completely remove this user account from the system.
+              Delete the account for{' '}
+              <span className="font-bold text-foreground">{userToDelete?.name}</span>? This will
+              disable sign-in for the account.
             </p>
 
             {userToDelete && (

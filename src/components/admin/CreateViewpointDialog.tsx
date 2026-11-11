@@ -1,6 +1,13 @@
 import { uploadApi } from '@/apis/upload/uploadApi';
 import { Button } from '@/components/ui/button';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -27,6 +34,8 @@ import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { LocationPickerMap } from './LocationPickerMap';
 import { COLOSSEUM_DEFAULT_COORDS } from './mapConstants';
 
+const norm = (code: string) => code.toLowerCase().replace(/[-_]/g, '');
+
 export interface CreateViewpointDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -37,7 +46,7 @@ export interface CreateViewpointDialogProps {
   defaultFloorId?: string;
   onCreated?: (viewpoint: ViewpointModel) => void;
   onUpdated?: (viewpoint: ViewpointModel) => void;
-  onSubmitViewpoint?: (payload: CreateViewpointInput) => Promise<ViewpointModel>;
+  onSubmitViewpoint: (payload: CreateViewpointInput) => Promise<ViewpointModel>;
 }
 
 export const CreateViewpointDialog: React.FC<CreateViewpointDialogProps> = ({
@@ -54,10 +63,9 @@ export const CreateViewpointDialog: React.FC<CreateViewpointDialogProps> = ({
 }) => {
   const { showSuccess, showError } = useToast();
   const publishId = useId();
+  const landmarkSelectId = useId();
+  const floorSelectId = useId();
   const isEditMode = Boolean(viewpointToEdit);
-
-  // Normalize helper for landmark codes
-  const norm = (str: string) => str.toLowerCase().replace(/[-_]/g, '');
 
   // Form State
   const [selectedLandmarkCode, setSelectedLandmarkCode] = useState<string>('colosseum');
@@ -113,6 +121,19 @@ export const CreateViewpointDialog: React.FC<CreateViewpointDialogProps> = ({
     return [{ code: 'colosseum', name: 'Colosseum (Flavian Amphitheatre)' }];
   }, [landmarks, floors]);
 
+  const getLandmarkPosition = useCallback(
+    (code: string, floor?: FloorModel) => {
+      const landmark = landmarks.find((item) => norm(item.code) === norm(code));
+      const [lng, lat] = landmark?.location?.coordinates ?? [];
+      if (lat !== undefined && lng !== undefined && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
+        return { lat, lng };
+      }
+      const center = floor?.calibration?.centerCoordinates;
+      return center ? { lat: center.latitude, lng: center.longitude } : COLOSSEUM_DEFAULT_COORDS;
+    },
+    [landmarks]
+  );
+
   const slugify = (text: string, ord: number) => {
     const clean = text
       .toLowerCase()
@@ -143,19 +164,22 @@ export const CreateViewpointDialog: React.FC<CreateViewpointDialogProps> = ({
     );
     if (matchingFloors.length > 0) {
       setFloorId(matchingFloors[0].floorId || matchingFloors[0].id);
-      // Automatically center map to the selected floor's anchor if available
-      const firstCoord = matchingFloors[0].calibration?.centerCoordinates;
-      if (firstCoord) {
-        setLatitude(firstCoord.latitude.toFixed(6));
-        setLongitude(firstCoord.longitude.toFixed(6));
-      }
     } else {
       setFloorId('');
     }
+    const floorCenter = matchingFloors[0]?.calibration?.centerCoordinates;
+    if (isEditMode && !floorCenter) return;
+    const position =
+      isEditMode && floorCenter
+        ? { lat: floorCenter.latitude, lng: floorCenter.longitude }
+        : getLandmarkPosition(code, matchingFloors[0]);
+    setLatitude(position.lat.toFixed(6));
+    setLongitude(position.lng.toFixed(6));
   };
 
   const handleFloorChange = (selectedFloorId: string) => {
     setFloorId(selectedFloorId);
+    if (!isEditMode) return;
     const fl = floors.find((f) => (f.floorId || f.id) === selectedFloorId);
     if (fl?.calibration?.centerCoordinates) {
       setLatitude(fl.calibration.centerCoordinates.latitude.toFixed(6));
@@ -230,13 +254,11 @@ export const CreateViewpointDialog: React.FC<CreateViewpointDialogProps> = ({
 
     const targetNorm = norm(initialLandmark);
     const matching = floors.filter((f) => norm(f.landmarkCode || 'colosseum') === targetNorm);
-    const initialFloorId =
-      defaultFloorId ||
-      (matching.length > 0
-        ? matching[0].floorId || matching[0].id
-        : (floors[0]?.floorId ?? 'floor_underground'));
+    const initialFloor =
+      matching.find((floor) => (floor.floorId || floor.id) === defaultFloorId) ?? matching[0];
+    const position = getLandmarkPosition(initialLandmark, initialFloor);
 
-    setFloorId(initialFloorId);
+    setFloorId(initialFloor ? initialFloor.floorId || initialFloor.id : '');
     setViewpointId('');
     setIsSlugCustomized(false);
     setTitle('');
@@ -250,10 +272,10 @@ export const CreateViewpointDialog: React.FC<CreateViewpointDialogProps> = ({
     });
     setTriggerRadiusMeters(4.0);
     setTargetGazeHeadingDegrees('');
-    setLatitude(COLOSSEUM_DEFAULT_COORDS.lat.toFixed(6));
-    setLongitude(COLOSSEUM_DEFAULT_COORDS.lng.toFixed(6));
+    setLatitude(position.lat.toFixed(6));
+    setLongitude(position.lng.toFixed(6));
     setIsPublished(true);
-  }, [defaultLandmarkCode, defaultFloorId, landmarkOptions, floors]);
+  }, [defaultLandmarkCode, defaultFloorId, landmarkOptions, floors, getLandmarkPosition]);
 
   useEffect(() => {
     if (open) {
@@ -343,10 +365,6 @@ export const CreateViewpointDialog: React.FC<CreateViewpointDialogProps> = ({
       description: description.trim(),
       latitude: latNum,
       longitude: lngNum,
-      normalizedX: 0.5,
-      normalizedY: 0.5,
-      audioUrl: viewpointToEdit?.audioUrl || '',
-      audioDuration: viewpointToEdit?.audioDuration || '2 min',
       imageAsset: imageAsset.trim(),
       triggerRadiusMeters: Number(triggerRadiusMeters) || 4.0,
       targetGazeHeadingDegrees: headingNum,
@@ -355,30 +373,9 @@ export const CreateViewpointDialog: React.FC<CreateViewpointDialogProps> = ({
 
     try {
       setIsSubmitting(true);
-      if (onSubmitViewpoint) {
-        const saved = await onSubmitViewpoint(payload);
-        if (isEditMode && onUpdated) {
-          onUpdated(saved);
-        } else if (onCreated) {
-          onCreated(saved);
-        }
-      } else {
-        const fallback: ViewpointModel = {
-          ...payload,
-          latitude: payload.latitude ?? null,
-          longitude: payload.longitude ?? null,
-          normalizedX: 0.5,
-          normalizedY: 0.5,
-          isVisited: false,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        if (isEditMode && onUpdated) {
-          onUpdated(fallback);
-        } else if (onCreated) {
-          onCreated(fallback);
-        }
-      }
+      const saved = await onSubmitViewpoint(payload);
+      if (isEditMode) onUpdated?.(saved);
+      else onCreated?.(saved);
 
       showSuccess(
         isEditMode ? 'Viewpoint Updated' : 'Viewpoint Registered',
@@ -446,43 +443,54 @@ export const CreateViewpointDialog: React.FC<CreateViewpointDialogProps> = ({
                 {/* Two Cascading Dropdowns: Landmark and Floor */}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-foreground mb-1">
+                    <label
+                      htmlFor={landmarkSelectId}
+                      className="block text-xs font-medium text-foreground mb-1"
+                    >
                       Landmark <span className="text-destructive">*</span>
                     </label>
-                    <select
-                      value={selectedLandmarkCode}
-                      onChange={(e) => handleLandmarkChange(e.target.value)}
-                      className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary cursor-pointer"
-                    >
-                      {landmarkOptions.map((opt) => (
-                        <option key={opt.code} value={opt.code}>
-                          {opt.name}
-                        </option>
-                      ))}
-                    </select>
+                    <Select value={selectedLandmarkCode} onValueChange={handleLandmarkChange}>
+                      <SelectTrigger id={landmarkSelectId} className="w-full">
+                        <SelectValue placeholder="Select a Landmark" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {landmarkOptions.map((opt) => (
+                          <SelectItem key={opt.code} value={opt.code}>
+                            {opt.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-foreground mb-1">
+                    <label
+                      htmlFor={floorSelectId}
+                      className="block text-xs font-medium text-foreground mb-1"
+                    >
                       Target Floor <span className="text-destructive">*</span>
                     </label>
-                    <select
+                    <Select
                       value={floorId}
                       required
-                      onChange={(e) => handleFloorChange(e.target.value)}
+                      onValueChange={handleFloorChange}
                       disabled={availableFloorsForLandmark.length === 0}
-                      className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {availableFloorsForLandmark.length === 0 ? (
-                        <option value="">No floors found</option>
-                      ) : (
-                        availableFloorsForLandmark.map((fl) => (
-                          <option key={fl.floorId || fl.id} value={fl.floorId || fl.id}>
+                      <SelectTrigger id={floorSelectId} className="w-full">
+                        <SelectValue
+                          placeholder={
+                            availableFloorsForLandmark.length ? 'Select a floor' : 'No floors found'
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableFloorsForLandmark.map((fl) => (
+                          <SelectItem key={fl.floorId || fl.id} value={fl.floorId || fl.id}>
                             {fl.displayName} ({fl.floorNumberLabel || `Level ${fl.levelIndex}`})
-                          </option>
-                        ))
-                      )}
-                    </select>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 

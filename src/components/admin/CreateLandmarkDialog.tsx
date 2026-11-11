@@ -7,6 +7,13 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { landmarkApi, type CreateLandmarkInput } from '@/apis/landmark/landmarkApi';
 import { uploadApi } from '@/apis/upload/uploadApi';
 import type { Landmark } from '@/types/api/landmarkTypes';
@@ -45,6 +52,8 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
 }) => {
   const { showSuccess, showError } = useToast();
   const publishId = useId();
+  const categorySelectId = useId();
+  const iconSelectId = useId();
   const isEditMode = Boolean(landmarkToEdit);
 
   // Form State - Defaulted to Colosseum coordinates as the origin pin
@@ -864,21 +873,25 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-foreground mb-1">
+                    <label
+                      htmlFor={categorySelectId}
+                      className="block text-xs font-medium text-foreground mb-1"
+                    >
                       Category
                     </label>
-                    <select
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value)}
-                      className="w-full px-2.5 py-2 bg-background border border-border rounded-lg text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                    >
-                      <option value="Monument">Monument</option>
-                      <option value="Triumphal Arch">Triumphal Arch</option>
-                      <option value="Amphitheatre">Amphitheatre</option>
-                      <option value="Temple">Temple</option>
-                      <option value="Gladiator Barracks">Gladiator Barracks</option>
-                      <option value="Ruins">Ruins / Arena</option>
-                    </select>
+                    <Select value={category} onValueChange={setCategory}>
+                      <SelectTrigger id={categorySelectId} className="w-full text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Monument">Monument</SelectItem>
+                        <SelectItem value="Triumphal Arch">Triumphal Arch</SelectItem>
+                        <SelectItem value="Amphitheatre">Amphitheatre</SelectItem>
+                        <SelectItem value="Temple">Temple</SelectItem>
+                        <SelectItem value="Gladiator Barracks">Gladiator Barracks</SelectItem>
+                        <SelectItem value="Ruins">Ruins / Arena</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   <div>
@@ -902,20 +915,24 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-medium text-foreground mb-1">
+                    <label
+                      htmlFor={iconSelectId}
+                      className="block text-xs font-medium text-foreground mb-1"
+                    >
                       Marker Icon
                     </label>
-                    <select
-                      value={iconSymbol}
-                      onChange={(e) => setIconSymbol(e.target.value)}
-                      className="w-full px-2.5 py-2 bg-background border border-border rounded-lg text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-                    >
-                      <option value="🏛️">🏛️ Arch / Monument</option>
-                      <option value="🏟️">🏟️ Stadium / Arena</option>
-                      <option value="⛩️">⛩️ Ancient Temple</option>
-                      <option value="⚔️">⚔️ Gladiator School</option>
-                      <option value="📍">📍 Waypoint Pin</option>
-                    </select>
+                    <Select value={iconSymbol} onValueChange={setIconSymbol}>
+                      <SelectTrigger id={iconSelectId} className="w-full text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="🏛️">🏛️ Arch / Monument</SelectItem>
+                        <SelectItem value="🏟️">🏟️ Stadium / Arena</SelectItem>
+                        <SelectItem value="⛩️">⛩️ Ancient Temple</SelectItem>
+                        <SelectItem value="⚔️">⚔️ Gladiator School</SelectItem>
+                        <SelectItem value="📍">📍 Waypoint Pin</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </div>
