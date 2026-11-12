@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom';
+import EnvConstants from '@/utils/envConstants';
 
-const operator = import.meta.env.VITE_PRIVACY_OPERATOR?.trim();
-const contact = import.meta.env.VITE_PRIVACY_CONTACT_EMAIL?.trim();
+const operator = EnvConstants.PRIVACY_OPERATOR;
+const contact = EnvConstants.PRIVACY_CONTACT_EMAIL;
 
 export default function PrivacyPolicy() {
   return (
