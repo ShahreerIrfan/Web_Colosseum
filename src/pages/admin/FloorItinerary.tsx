@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { isAxiosError } from 'axios';
 import { latLng } from 'leaflet';
+import { TbStairs } from 'react-icons/tb';
 import api from '@/apis/axios';
 import { floorApi } from '@/apis/floor/floorApi';
 import { landmarkApi } from '@/apis/landmark/landmarkApi';
@@ -26,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 import type { BaseSuccessResponse } from '@/types/api/CommonTypes';
 import type { FloorModel, FloorPortalModel } from '@/types/api/floorTypes';
 import { getUserPayload } from '@/utils/localStorageUtils';
@@ -160,6 +162,7 @@ export default function FloorItinerary() {
   const [floorId, setFloorId] = useState('');
   const [content, setContent] = useState<FloorContent | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [activeTab, setActiveTab] = useState<'connections' | 'portals'>('connections');
   const [portalDraft, setPortalDraft] = useState<PortalDraft | null>(null);
   const [portalError, setPortalError] = useState('');
   const [loadingCatalog, setLoadingCatalog] = useState(true);
@@ -614,10 +617,44 @@ export default function FloorItinerary() {
               </div>
             </form>
           ) : (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="font-semibold">Walking connections</h2>
-                {canCreate && (
+            <div className="space-y-4">
+              {/* Tab Navigation and Action Buttons */}
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-2.5 shadow-xs">
+                <div className="flex gap-1.5 rounded-md bg-muted p-1">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('connections')}
+                    className={cn(
+                      'flex items-center gap-2 rounded-md px-3.5 py-1.5 text-sm font-medium transition-all cursor-pointer',
+                      activeTab === 'connections'
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    <span>Walking Connections</span>
+                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+                      {content.segments.length}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('portals')}
+                    className={cn(
+                      'flex items-center gap-2 rounded-md px-3.5 py-1.5 text-sm font-medium transition-all cursor-pointer',
+                      activeTab === 'portals'
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    <TbStairs className="size-4 text-amber-600" />
+                    <span>Staircase Portals</span>
+                    <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:text-amber-300">
+                      {content.portals?.length ?? 0}
+                    </span>
+                  </button>
+                </div>
+
+                {activeTab === 'connections' && canCreate && (
                   <Button
                     disabled={busy || eligible.length < 2}
                     onClick={() => {
@@ -629,203 +666,252 @@ export default function FloorItinerary() {
                     Add Connection
                   </Button>
                 )}
+
+                {activeTab === 'portals' && canCreate && (
+                  <Button
+                    variant="default"
+                    className="bg-amber-600 hover:bg-amber-700 text-white flex items-center gap-1.5 cursor-pointer"
+                    disabled={busy || targetFloorOptions.length === 0}
+                    onClick={() => {
+                      setPortalError('');
+                      setPortalDraft({
+                        name: '',
+                        fromViewpointId: eligible[0]?.id || '',
+                        toFloorId: targetFloorOptions[0]?.value || '',
+                        isAscending: true,
+                        elevationDeltaMeters: 4.5,
+                        triggerRadiusMeters: 15,
+                      });
+                    }}
+                  >
+                    <TbStairs className="size-4" />
+                    <span>Add Staircase Portal</span>
+                  </Button>
+                )}
               </div>
-              {eligible.length < 2 && (
-                <p className="text-sm">
-                  Two Viewpoints with GPS coordinates are needed to add a connection.
-                </p>
-              )}
-              {!content.segments.length && (
-                <p className="text-sm">No connections saved on this Floor.</p>
-              )}
-              <ul className="divide-y rounded-md border">
-                {content.segments.map((segment) => {
-                  const start = stops.get(segment.fromId);
-                  const end = stops.get(segment.toId);
-                  const canPublish =
-                    content.floorPublished && start?.isPublished && end?.isPublished;
-                  return (
-                    <li
-                      key={segment._id}
-                      className="flex flex-wrap items-start justify-between gap-3 p-3"
-                    >
-                      <div>
-                        <p className="font-medium">
-                          {stopLabel(segment.fromId)} → {stopLabel(segment.toId)}
-                        </p>
-                        <p className="text-sm">
-                          {segment.isPublished ? 'Published' : 'Draft'} · {segment.distanceMeters} m
-                          · {segment.walkingDurationSeconds} s
-                        </p>
-                        {segment.instruction && <p className="text-sm">{segment.instruction}</p>}
-                        {!canPublish && (
-                          <p className="text-sm">
-                            Both Viewpoints and the Floor must be published for visitors to see this
-                            connection.
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {canUpdate && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={busy}
-                            onClick={() => edit(segment)}
+
+              {/* Tab 1: Walking Connections */}
+              {activeTab === 'connections' && (
+                <div className="space-y-3">
+                  {eligible.length < 2 && (
+                    <p className="text-sm text-muted-foreground">
+                      Two Viewpoints with GPS coordinates are needed to add a connection.
+                    </p>
+                  )}
+                  {!content.segments.length && (
+                    <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+                      No walking connections saved on this floor. Click &quot;Add Connection&quot;
+                      to draw pedestrian routes between viewpoints.
+                    </div>
+                  )}
+                  {content.segments.length > 0 && (
+                    <ul className="divide-y rounded-lg border bg-card shadow-xs">
+                      {content.segments.map((segment) => {
+                        const start = stops.get(segment.fromId);
+                        const end = stops.get(segment.toId);
+                        const canPublish =
+                          content.floorPublished && start?.isPublished && end?.isPublished;
+                        return (
+                          <li
+                            key={segment._id}
+                            className="flex flex-wrap items-start justify-between gap-3 p-3.5 hover:bg-muted/30 transition-colors"
                           >
-                            Edit
-                          </Button>
-                        )}
-                        {canUpdate && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={busy || (!segment.isPublished && !canPublish)}
-                            onClick={() => changePublication(segment)}
-                          >
-                            {segment.isPublished ? 'Unpublish' : 'Publish'}
-                          </Button>
-                        )}
-                        {canDelete && (
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            disabled={busy}
-                            onClick={() => remove(segment)}
-                          >
-                            Delete
-                          </Button>
-                        )}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          )}
-
-          {/* Staircase Portals & Level Transitions Section */}
-          <div className="space-y-3 rounded-md border p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="flex items-center gap-2 text-lg font-semibold">
-                  <span>🪜</span> Staircase Portals & Level Transitions
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  Define staircases connecting this floor to other levels. When visitors approach
-                  these coordinates, the mobile app detects vertical transition and switches floors.
-                </p>
-              </div>
-              {canCreate && (
-                <Button
-                  variant="default"
-                  disabled={busy || targetFloorOptions.length === 0}
-                  onClick={() => {
-                    setPortalError('');
-                    setPortalDraft({
-                      name: '',
-                      fromViewpointId: eligible[0]?.id || '',
-                      toFloorId: targetFloorOptions[0]?.value || '',
-                      isAscending: true,
-                      elevationDeltaMeters: 4.5,
-                      triggerRadiusMeters: 15,
-                    });
-                  }}
-                >
-                  Add Staircase Portal
-                </Button>
-              )}
-            </div>
-
-            {targetFloorOptions.length === 0 && (
-              <p className="rounded-md bg-muted/40 p-3 text-sm text-muted-foreground">
-                ℹ️ This landmark only has one floor. Staircase level transitions connect multi-level
-                monuments.
-              </p>
-            )}
-
-            {(!content.portals || content.portals.length === 0) &&
-              targetFloorOptions.length > 0 && (
-                <p className="text-sm text-muted-foreground">
-                  No staircase portals defined on this floor yet. Click &quot;Add Staircase
-                  Portal&quot; to define where stairs are located.
-                </p>
+                            <div className="space-y-0.5">
+                              <p className="font-semibold text-foreground">
+                                {stopLabel(segment.fromId)} → {stopLabel(segment.toId)}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                <span
+                                  className={cn(
+                                    'inline-block rounded px-1.5 py-0.5 font-medium mr-1.5',
+                                    segment.isPublished
+                                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                                      : 'bg-muted text-muted-foreground'
+                                  )}
+                                >
+                                  {segment.isPublished ? 'Published' : 'Draft'}
+                                </span>
+                                · {segment.distanceMeters} m · {segment.walkingDurationSeconds} s
+                              </p>
+                              {segment.instruction && (
+                                <p className="text-xs text-muted-foreground italic mt-1">
+                                  {segment.instruction}
+                                </p>
+                              )}
+                              {!canPublish && (
+                                <p className="text-xs text-amber-600 mt-1">
+                                  Both Viewpoints and the Floor must be published for visitors to
+                                  see this connection.
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {canUpdate && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={busy}
+                                  onClick={() => edit(segment)}
+                                >
+                                  Edit
+                                </Button>
+                              )}
+                              {canUpdate && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={busy || (!segment.isPublished && !canPublish)}
+                                  onClick={() => changePublication(segment)}
+                                >
+                                  {segment.isPublished ? 'Unpublish' : 'Publish'}
+                                </Button>
+                              )}
+                              {canDelete && (
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  disabled={busy}
+                                  onClick={() => remove(segment)}
+                                >
+                                  Delete
+                                </Button>
+                              )}
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
               )}
 
-            {content.portals && content.portals.length > 0 && (
-              <ul className="divide-y rounded-md border">
-                {content.portals.map((portal) => {
-                  const anchor = stops.get(portal.fromViewpointId || '');
-                  const targetFloor = floors.find((f) => f.floorId === portal.toFloorId);
-                  return (
-                    <li
-                      key={portal.id}
-                      className="flex flex-wrap items-center justify-between gap-3 p-3"
-                    >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg">🪜</span>
-                          <span className="font-medium">{portal.name}</span>
-                          <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
-                            {portal.isAscending ? '▲ Ascent' : '▼ Descent'} (
-                            {portal.elevationDeltaMeters > 0
-                              ? `+${portal.elevationDeltaMeters}`
-                              : portal.elevationDeltaMeters}
-                            m)
-                          </span>
+              {/* Tab 2: Staircase Portals */}
+              {activeTab === 'portals' && (
+                <div className="space-y-3">
+                  {targetFloorOptions.length === 0 && (
+                    <div className="rounded-lg border bg-muted/40 p-4 text-sm text-muted-foreground">
+                      ℹ️ This landmark only has one floor. Staircase level transitions are used to
+                      connect multi-level monuments (such as Colosseum Hypogeum ↔ Level 1 ↔ Attic).
+                    </div>
+                  )}
+
+                  {(!content.portals || content.portals.length === 0) &&
+                    targetFloorOptions.length > 0 && (
+                      <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+                        <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300 mb-3">
+                          <TbStairs className="size-6" />
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          Near{' '}
-                          <strong>
-                            {anchor
-                              ? stopLabel(anchor.id)
-                              : portal.fromViewpointId || 'Coordinates'}
-                          </strong>{' '}
-                          → Connects to{' '}
-                          <strong>{targetFloor?.displayName || portal.toFloorId}</strong> · Trigger
-                          Radius: {portal.triggerRadiusMeters}m
+                        <p className="font-medium text-foreground">
+                          No staircase portals defined on this floor yet
                         </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {canUpdate && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Add a staircase transition to allow visitors to automatically switch floor
+                          maps as they climb or descend stairs.
+                        </p>
+                        {canCreate && (
                           <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={busy}
+                            variant="default"
+                            className="mt-4 bg-amber-600 hover:bg-amber-700 text-white cursor-pointer"
                             onClick={() => {
                               setPortalError('');
                               setPortalDraft({
-                                id: portal.id,
-                                name: portal.name,
-                                fromViewpointId: portal.fromViewpointId || '',
-                                toFloorId: portal.toFloorId,
-                                toViewpointId: portal.toViewpointId || '',
-                                isAscending: portal.isAscending,
-                                elevationDeltaMeters: portal.elevationDeltaMeters,
-                                triggerRadiusMeters: portal.triggerRadiusMeters,
+                                name: '',
+                                fromViewpointId: eligible[0]?.id || '',
+                                toFloorId: targetFloorOptions[0]?.value || '',
+                                isAscending: true,
+                                elevationDeltaMeters: 4.5,
+                                triggerRadiusMeters: 15,
                               });
                             }}
                           >
-                            Edit
-                          </Button>
-                        )}
-                        {canDelete && (
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            disabled={busy}
-                            onClick={() => void deletePortal(portal.id)}
-                          >
-                            Delete
+                            <TbStairs className="size-4 mr-1.5" />
+                            <span>Add First Staircase Portal</span>
                           </Button>
                         )}
                       </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
+                    )}
+
+                  {content.portals && content.portals.length > 0 && (
+                    <ul className="divide-y rounded-lg border bg-card shadow-xs">
+                      {content.portals.map((portal) => {
+                        const anchor = stops.get(portal.fromViewpointId || '');
+                        const targetFloor = floors.find((f) => f.floorId === portal.toFloorId);
+                        return (
+                          <li
+                            key={portal.id}
+                            className="flex flex-wrap items-center justify-between gap-3 p-3.5 hover:bg-muted/30 transition-colors"
+                          >
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                <div className="flex size-7 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                                  <TbStairs className="size-4" />
+                                </div>
+                                <span className="font-semibold text-foreground">{portal.name}</span>
+                                <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                                  {portal.isAscending ? '▲ Ascent' : '▼ Descent'} (
+                                  {portal.elevationDeltaMeters > 0
+                                    ? `+${portal.elevationDeltaMeters}`
+                                    : portal.elevationDeltaMeters}
+                                  m)
+                                </span>
+                              </div>
+                              <p className="text-xs text-muted-foreground pl-9">
+                                Anchor:{' '}
+                                <strong className="text-foreground">
+                                  {anchor
+                                    ? stopLabel(anchor.id)
+                                    : portal.fromViewpointId || 'Coordinates'}
+                                </strong>{' '}
+                                → Destination:{' '}
+                                <strong className="text-foreground">
+                                  {targetFloor?.displayName || portal.toFloorId}
+                                </strong>{' '}
+                                · Trigger Radius: {portal.triggerRadiusMeters}m
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {canUpdate && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={busy}
+                                  onClick={() => {
+                                    setPortalError('');
+                                    setPortalDraft({
+                                      id: portal.id,
+                                      name: portal.name,
+                                      fromViewpointId: portal.fromViewpointId || '',
+                                      toFloorId: portal.toFloorId,
+                                      toViewpointId: portal.toViewpointId || '',
+                                      isAscending: portal.isAscending,
+                                      elevationDeltaMeters: portal.elevationDeltaMeters,
+                                      triggerRadiusMeters: portal.triggerRadiusMeters,
+                                    });
+                                  }}
+                                >
+                                  Edit
+                                </Button>
+                              )}
+                              {canDelete && (
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  disabled={busy}
+                                  onClick={() => void deletePortal(portal.id)}
+                                >
+                                  Delete
+                                </Button>
+                              )}
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           <Dialog
             open={Boolean(portalDraft)}
@@ -833,8 +919,9 @@ export default function FloorItinerary() {
           >
             <DialogContent className="sm:max-w-[480px]">
               <DialogHeader>
-                <DialogTitle>
-                  {portalDraft?.id ? 'Edit Staircase Portal' : 'Add Staircase Portal'}
+                <DialogTitle className="flex items-center gap-2">
+                  <TbStairs className="size-5 text-amber-600" />
+                  <span>{portalDraft?.id ? 'Edit Staircase Portal' : 'Add Staircase Portal'}</span>
                 </DialogTitle>
                 <DialogDescription>
                   Configure a staircase transition connecting this floor to another level.

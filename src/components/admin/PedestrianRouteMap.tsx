@@ -1,6 +1,8 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useEffect, useRef } from 'react';
+import { renderToString } from 'react-dom/server';
+import { TbStairs } from 'react-icons/tb';
 import { COLOSSEUM_DEFAULT_COORDS } from './mapConstants';
 
 export type RoutePoint = { latitude: number; longitude: number };
@@ -34,6 +36,7 @@ export function PedestrianRouteMap({
   const layer = useRef<L.LayerGroup | null>(null);
   const initialPoints = useRef([
     ...stops.map(({ position }) => position),
+    ...portals.map(({ position }) => position),
     ...(start ? [start] : []),
     ...points,
     ...(end ? [end] : []),
@@ -49,11 +52,22 @@ export function PedestrianRouteMap({
       center: [COLOSSEUM_DEFAULT_COORDS.lat, COLOSSEUM_DEFAULT_COORDS.lng],
       zoom: 17,
     });
-    L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+    const hybrid = L.tileLayer('https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
       subdomains: ['0', '1', '2', '3'],
       attribution: 'Map data © Google',
       maxZoom: 21,
-    }).addTo(map);
+    });
+    const streets = L.tileLayer('https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+      subdomains: ['0', '1', '2', '3'],
+      attribution: 'Map data © Google',
+      maxZoom: 21,
+    });
+    hybrid.addTo(map);
+    L.control
+      .layers({ 'Satellite Aerial': hybrid, 'Roadmap Streets': streets }, undefined, {
+        position: 'topright',
+      })
+      .addTo(map);
     layer.current = L.layerGroup().addTo(map);
     if (initialPoints.current.length > 0) {
       map.fitBounds(
@@ -115,29 +129,42 @@ export function PedestrianRouteMap({
       }
     }
     for (const { position, label } of stops) {
-      const tooltip = document.createElement('span');
-      tooltip.textContent = label;
-      L.circleMarker([position.latitude, position.longitude], {
-        radius: 6,
-        bubblingMouseEvents: false,
+      const orderNum = label.split('·')[0]?.trim() || '';
+      L.marker([position.latitude, position.longitude], {
+        icon: L.divIcon({
+          className:
+            'flex items-center justify-center rounded-full bg-[#8b261e] text-white shadow-md border-2 border-white font-bold text-[11px] select-none cursor-pointer hover:scale-110 transition-transform',
+          html: `<span>${orderNum}</span>`,
+          iconSize: [26, 26],
+        }),
       })
-        .bindTooltip(tooltip)
+        .bindTooltip(`<div class="font-sans text-xs font-semibold p-0.5">${label}</div>`, {
+          direction: 'top',
+          offset: [0, -14],
+        })
         .addTo(group);
     }
+    const stairsSvg = renderToString(<TbStairs size={18} strokeWidth={2.4} />);
     for (const portal of portals) {
-      const tooltip = document.createElement('div');
-      tooltip.className = 'font-sans text-xs p-1';
-      tooltip.innerHTML = `<strong>🪜 ${portal.name}</strong><br/><span>${portal.isAscending ? '▲ Ascending' : '▼ Descending'}${portal.toFloorLabel ? ` to ${portal.toFloorLabel}` : ''}</span>`;
-
       L.marker([portal.position.latitude, portal.position.longitude], {
         icon: L.divIcon({
           className:
-            'flex items-center justify-center rounded-full bg-amber-500 text-white shadow-lg border-2 border-white text-sm cursor-pointer',
-          html: `<span>🪜</span>`,
-          iconSize: [28, 28],
+            'flex items-center justify-center rounded-full bg-amber-500 hover:bg-amber-600 text-white shadow-xl border-2 border-white ring-2 ring-amber-400/80 cursor-pointer transition-transform hover:scale-110',
+          html: `<span class="flex items-center justify-center w-full h-full">${stairsSvg}</span>`,
+          iconSize: [32, 32],
         }),
       })
-        .bindTooltip(tooltip)
+        .bindTooltip(
+          `<div class="font-sans text-xs p-1 space-y-0.5">
+            <div class="font-bold flex items-center gap-1.5 text-foreground text-sm">
+              <span>🪜 ${portal.name}</span>
+            </div>
+            <div class="text-muted-foreground font-medium">
+              ${portal.isAscending ? '▲ Ascending' : '▼ Descending'}${portal.toFloorLabel ? ` to ${portal.toFloorLabel}` : ''}
+            </div>
+          </div>`,
+          { direction: 'top', offset: [0, -16] }
+        )
         .addTo(group);
     }
     const path = [...(start ? [start] : []), ...points, ...(end ? [end] : [])];
@@ -201,7 +228,7 @@ export function PedestrianRouteMap({
   return (
     <div
       ref={container}
-      className="isolate h-96 w-full rounded-md border"
+      className="isolate h-[460px] w-full rounded-xl border border-border shadow-sm overflow-hidden"
       aria-label="Walking route map"
     />
   );
