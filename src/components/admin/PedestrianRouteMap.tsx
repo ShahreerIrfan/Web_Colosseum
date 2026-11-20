@@ -131,41 +131,28 @@ export function PedestrianRouteMap({
     for (const { position, label } of stops) {
       const orderNum = label.split('·')[0]?.trim() || '';
       L.marker([position.latitude, position.longitude], {
+        interactive: false,
         icon: L.divIcon({
           className:
-            'flex items-center justify-center rounded-full bg-[#8b261e] text-white shadow-md border-2 border-white font-bold text-[11px] select-none cursor-pointer hover:scale-110 transition-transform',
-          html: `<span>${orderNum}</span>`,
-          iconSize: [26, 26],
+            'flex items-center justify-center rounded-md bg-[#8b261e] text-white shadow-md border-[1.5px] border-white font-bold text-[11px] px-1 select-none',
+          html: `<span style="display:block;line-height:1;letter-spacing:-0.3px;">${orderNum}</span>`,
+          iconSize: [34, 22],
+          iconAnchor: [17, 11],
         }),
-      })
-        .bindTooltip(`<div class="font-sans text-xs font-semibold p-0.5">${label}</div>`, {
-          direction: 'top',
-          offset: [0, -14],
-        })
-        .addTo(group);
+      }).addTo(group);
     }
     const stairsSvg = renderToString(<TbStairs size={18} strokeWidth={2.4} />);
     for (const portal of portals) {
       L.marker([portal.position.latitude, portal.position.longitude], {
+        interactive: false,
         icon: L.divIcon({
           className:
-            'flex items-center justify-center rounded-full bg-amber-500 hover:bg-amber-600 text-white shadow-xl border-2 border-white ring-2 ring-amber-400/80 cursor-pointer transition-transform hover:scale-110',
+            'flex items-center justify-center rounded-md bg-amber-500 text-white shadow-md border-[1.5px] border-white select-none',
           html: `<span class="flex items-center justify-center w-full h-full">${stairsSvg}</span>`,
-          iconSize: [32, 32],
+          iconSize: [28, 24],
+          iconAnchor: [14, 12],
         }),
-      })
-        .bindTooltip(
-          `<div class="font-sans text-xs p-1 space-y-0.5">
-            <div class="font-bold flex items-center gap-1.5 text-foreground text-sm">
-              <span>🪜 ${portal.name}</span>
-            </div>
-            <div class="text-muted-foreground font-medium">
-              ${portal.isAscending ? '▲ Ascending' : '▼ Descending'}${portal.toFloorLabel ? ` to ${portal.toFloorLabel}` : ''}
-            </div>
-          </div>`,
-          { direction: 'top', offset: [0, -16] }
-        )
-        .addTo(group);
+      }).addTo(group);
     }
     const path = [...(start ? [start] : []), ...points, ...(end ? [end] : [])];
     L.polyline(
