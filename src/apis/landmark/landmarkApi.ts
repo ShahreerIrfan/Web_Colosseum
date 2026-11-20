@@ -19,6 +19,24 @@ const MOCK_LANDMARKS: Landmark[] = [
     romanEraName: 'Amphitheatrum Flavium',
     description:
       'The largest ancient amphitheatre ever built, constructed of travertine limestone, tuff, and brick-faced concrete under Emperors Vespasian and Titus (70–80 AD).',
+    era: '70 – 80 AD (Flavian Dynasty)',
+    builders: 'Emperor Vespasian, completed by Titus',
+    historicalSummary:
+      'Commissioned in 70 AD by Emperor Vespasian and inaugurated in 80 AD by Titus with 100 days of games. The largest stone amphitheatre in the Roman Empire, engineered with travertine limestone, tufa, and concrete to seat over 50,000 spectators for gladiatorial battles and public spectacles.',
+    securityGuidelines: [
+      'Valid ticket and official government photo ID must match and be presented at the gate.',
+      'Backpacks and bags exceeding 30×30×15 cm are strictly prohibited (no luggage storage on site).',
+      'Glass bottles, alcoholic beverages, sharp objects, and selfie sticks are not permitted.',
+      'All visitors must pass through security screening and metal detectors prior to entry.',
+    ],
+    levelHighlights: [
+      'Level 0: Hypogeum (Subterranean staging area, animal cages, and elevator lifts)',
+      'Level 1: Arena Floor & Lower Cavea (Imperial box and equestrian seating tiers)',
+      'Level 2: Museum & Exhibition Galleries (Historical artifacts, models, and Colosseum history)',
+      'Level 3: Upper Belvedere (Panoramic terraces overlooking the Roman Forum and city)',
+    ],
+    audioIntroText:
+      'Welcome to the Flavian Amphitheatre, universally known as the Colosseum. Commissioned in 70 AD by Emperor Vespasian and inaugurated in 80 AD by his son Titus, this marvel seated over 50,000 Romans. Before entering the security gates, please ensure your photo ID and ticket voucher are ready. Large bags exceeding 30 centimeters are strictly prohibited. Once inside, you can explore the subterranean Hypogeum, the grand Arena floor, and the panoramic exhibition galleries.',
     assetPath: 'assets/logo/Colosseum.png',
     thumbnailUrl:
       'https://images.unsplash.com/photo-1552832230-c0197dd311b5?w=800&auto=format&fit=crop&q=80',
@@ -427,6 +445,12 @@ export interface CreateLandmarkInput {
   code: string;
   name: string;
   description?: string;
+  era?: string;
+  builders?: string;
+  historicalSummary?: string;
+  securityGuidelines?: string[];
+  levelHighlights?: string[];
+  audioIntroText?: string;
   assetPath: string;
   cloudinaryPublicId?: string;
   thumbnailUrl?: string;
@@ -460,6 +484,12 @@ interface BackendLandmarkRaw {
   name?: string;
   romanEraName?: string;
   description?: string;
+  era?: string;
+  builders?: string;
+  historicalSummary?: string;
+  securityGuidelines?: string[];
+  levelHighlights?: string[];
+  audioIntroText?: string;
   assetPath?: string;
   cloudinaryPublicId?: string;
   thumbnailUrl?: string;
@@ -523,6 +553,12 @@ const mapRawLandmark = (raw: BackendLandmarkRaw): Landmark => {
     name: raw.name || match?.name || 'Ancient Roman Landmark',
     romanEraName: raw.romanEraName || match?.romanEraName || 'Monumentum Romanum',
     description: raw.description || match?.description || '',
+    era: raw.era ?? match?.era ?? '',
+    builders: raw.builders ?? match?.builders ?? '',
+    historicalSummary: raw.historicalSummary ?? match?.historicalSummary ?? '',
+    securityGuidelines: raw.securityGuidelines ?? match?.securityGuidelines ?? [],
+    levelHighlights: raw.levelHighlights ?? match?.levelHighlights ?? [],
+    audioIntroText: raw.audioIntroText ?? match?.audioIntroText ?? '',
     assetPath: raw.assetPath || match?.assetPath || '',
     cloudinaryPublicId: raw.cloudinaryPublicId || match?.cloudinaryPublicId || '',
     thumbnailUrl:
@@ -732,6 +768,12 @@ export const landmarkApi = {
         code: payload.code,
         name: payload.name,
         description: payload.description || '',
+        era: payload.era || '',
+        builders: payload.builders || '',
+        historicalSummary: payload.historicalSummary || '',
+        securityGuidelines: payload.securityGuidelines || [],
+        levelHighlights: payload.levelHighlights || [],
+        audioIntroText: payload.audioIntroText || '',
         assetPath: payload.assetPath || 'assets/floor_map/floor_level_1.svg',
         cloudinaryPublicId: payload.cloudinaryPublicId || '',
         thumbnailUrl:
@@ -781,6 +823,12 @@ export const landmarkApi = {
         code: payload.code || existing?.code || id,
         name: payload.name ?? existing?.name ?? 'Updated Landmark',
         description: payload.description ?? existing?.description ?? '',
+        era: payload.era ?? existing?.era ?? '',
+        builders: payload.builders ?? existing?.builders ?? '',
+        historicalSummary: payload.historicalSummary ?? existing?.historicalSummary ?? '',
+        securityGuidelines: payload.securityGuidelines ?? existing?.securityGuidelines ?? [],
+        levelHighlights: payload.levelHighlights ?? existing?.levelHighlights ?? [],
+        audioIntroText: payload.audioIntroText ?? existing?.audioIntroText ?? '',
         assetPath: payload.assetPath ?? existing?.assetPath ?? '',
         cloudinaryPublicId: payload.cloudinaryPublicId ?? existing?.cloudinaryPublicId ?? '',
         thumbnailUrl: payload.thumbnailUrl ?? existing?.thumbnailUrl ?? '',

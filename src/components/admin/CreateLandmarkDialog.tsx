@@ -33,6 +33,11 @@ import {
   CheckCircle2,
   Trash2,
   Image as ImageIcon,
+  Plus,
+  Volume2,
+  ShieldCheck,
+  Sparkles,
+  BookOpen,
 } from 'lucide-react';
 
 export interface CreateLandmarkDialogProps {
@@ -89,6 +94,63 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
   const [colorHex, setColorHex] = useState('#DD1110');
   const [iconSymbol, setIconSymbol] = useState('🏛️');
   const [isPublished, setIsPublished] = useState(true);
+
+  // 3. Visitor Onboarding & Orientation Briefing State
+  const [era, setEra] = useState('');
+  const [builders, setBuilders] = useState('');
+  const [historicalSummary, setHistoricalSummary] = useState('');
+  const [securityGuidelines, setSecurityGuidelines] = useState<string[]>([]);
+  const [newGuideline, setNewGuideline] = useState('');
+  const [levelHighlights, setLevelHighlights] = useState<string[]>([]);
+  const [newLevelHighlight, setNewLevelHighlight] = useState('');
+  const [audioIntroText, setAudioIntroText] = useState('');
+
+  // Helper actions for dynamic list editing
+  const handleAddGuideline = () => {
+    const trimmed = newGuideline.trim();
+    if (!trimmed) return;
+    setSecurityGuidelines((prev) => [...prev, trimmed]);
+    setNewGuideline('');
+  };
+
+  const handleRemoveGuideline = (index: number) => {
+    setSecurityGuidelines((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleAddDefaultGuidelines = () => {
+    setSecurityGuidelines([
+      'Valid ticket and official government photo ID must match and be presented at the gate.',
+      'Backpacks and bags exceeding 30×30×15 cm are strictly prohibited (no luggage storage on site).',
+      'Glass bottles, alcoholic beverages, sharp objects, and selfie sticks are not permitted.',
+      'All visitors must pass through security screening and metal detectors prior to entry.',
+    ]);
+  };
+
+  const handleAddLevelHighlight = () => {
+    const trimmed = newLevelHighlight.trim();
+    if (!trimmed) return;
+    setLevelHighlights((prev) => [...prev, trimmed]);
+    setNewLevelHighlight('');
+  };
+
+  const handleRemoveLevelHighlight = (index: number) => {
+    setLevelHighlights((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleGenerateAudioScript = () => {
+    const landmarkName = name.trim() || 'this historic Roman monument';
+    const builderStr = builders.trim() ? ` Commissioned by ${builders.trim()}.` : '';
+    const eraStr = era.trim() ? ` dating from ${era.trim()}.` : '';
+    const summaryStr = historicalSummary.trim() || description.trim();
+    const rulesStr =
+      securityGuidelines.length > 0
+        ? ` Before entering the security gates, please ensure your photo ID and ticket voucher are ready.`
+        : ' Please review entry requirements before stepping inside.';
+
+    const script =
+      `Welcome to ${landmarkName}${eraStr}${builderStr} ${summaryStr} ${rulesStr}`.trim();
+    setAudioIntroText(script);
+  };
 
   // Sync map center dragging directly into text inputs
   const handleMapLocationChange = useCallback((newLat: number, newLng: number) => {
@@ -284,6 +346,14 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
     setColorHex('#DD1110');
     setIconSymbol('🏛️');
     setIsPublished(true);
+    setEra('');
+    setBuilders('');
+    setHistoricalSummary('');
+    setSecurityGuidelines([]);
+    setNewGuideline('');
+    setLevelHighlights([]);
+    setNewLevelHighlight('');
+    setAudioIntroText('');
     setShowAdvanced(false);
     setRotationDegrees(0.0);
     setAnchorX(0.5);
@@ -344,6 +414,18 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
         setMinZoom(landmarkToEdit.minZoom ?? 13.0);
         setMaxZoom(landmarkToEdit.maxZoom ?? 21.0);
         setIsPublished(landmarkToEdit.isPublished ?? true);
+        setEra(landmarkToEdit.era || '');
+        setBuilders(landmarkToEdit.builders || '');
+        setHistoricalSummary(landmarkToEdit.historicalSummary || landmarkToEdit.description || '');
+        setSecurityGuidelines(
+          Array.isArray(landmarkToEdit.securityGuidelines)
+            ? [...landmarkToEdit.securityGuidelines]
+            : []
+        );
+        setLevelHighlights(
+          Array.isArray(landmarkToEdit.levelHighlights) ? [...landmarkToEdit.levelHighlights] : []
+        );
+        setAudioIntroText(landmarkToEdit.audioIntroText || '');
         setShowAdvanced(
           Boolean(
             landmarkToEdit.calibration?.rotationDegrees ||
@@ -398,6 +480,12 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
       code: finalCode,
       name: name.trim(),
       description: description.trim(),
+      era: era.trim(),
+      builders: builders.trim(),
+      historicalSummary: historicalSummary.trim() || description.trim(),
+      securityGuidelines: securityGuidelines.filter((g) => g.trim().length > 0),
+      levelHighlights: levelHighlights.filter((l) => l.trim().length > 0),
+      audioIntroText: audioIntroText.trim(),
       assetPath: logoUrl || logoFileName || 'assets/floor_map/floor_level_1.svg',
       cloudinaryPublicId: logoPublicId || undefined,
       thumbnailUrl: cardUrl || undefined,
@@ -1071,6 +1159,241 @@ export const CreateLandmarkDialog: React.FC<CreateLandmarkDialogProps> = ({
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+
+          {/* 06 VISITOR ONBOARDING & ORIENTATION BRIEFING (POP-UP CARD) */}
+          <div className="pt-6 border-t border-border space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+              <div className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-wider">
+                <BookOpen className="size-3.5 text-primary" />
+                <span>06 Visitor Briefing & Entry Onboarding Card</span>
+              </div>
+              <span className="text-[11px] text-muted-foreground">
+                Configures the proximity pop-up card & automatic audio orientation
+              </span>
+            </div>
+
+            {/* Historical Summary */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                  <span>Historical Summary (Onboarding Card)</span>
+                </label>
+                <span className="text-[10px] text-muted-foreground">
+                  Displays in the expandable story card on approach
+                </span>
+              </div>
+              <textarea
+                rows={3}
+                value={historicalSummary}
+                onChange={(e) => setHistoricalSummary(e.target.value)}
+                placeholder="Enter rich historical context, architectural significance, construction history, and archaeological importance for visitors..."
+                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              />
+            </div>
+
+            {/* Era & Builders Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-foreground mb-1">
+                  Historical Era / Construction Period
+                </label>
+                <input
+                  type="text"
+                  value={era}
+                  onChange={(e) => setEra(e.target.value)}
+                  placeholder="e.g. 70 – 80 AD (Flavian Dynasty)"
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-foreground mb-1">
+                  Commissioning Builders / Architects
+                </label>
+                <input
+                  type="text"
+                  value={builders}
+                  onChange={(e) => setBuilders(e.target.value)}
+                  placeholder="e.g. Emperor Vespasian, completed by Titus"
+                  className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                />
+              </div>
+            </div>
+
+            {/* Security & Entry Guidelines */}
+            <div className="space-y-2 p-3.5 bg-muted/20 border border-border rounded-xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="size-4 text-primary" />
+                  <span className="text-xs font-semibold text-foreground">
+                    Security & Entry Guidelines
+                  </span>
+                  <span className="text-[10px] bg-primary/10 text-primary font-medium px-2 py-0.5 rounded-full">
+                    {securityGuidelines.length} rules
+                  </span>
+                </div>
+                {securityGuidelines.length === 0 && (
+                  <button
+                    type="button"
+                    onClick={handleAddDefaultGuidelines}
+                    className="text-[11px] text-primary hover:underline font-medium cursor-pointer flex items-center gap-1"
+                  >
+                    <span>Load Default Rules</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Guidelines List */}
+              {securityGuidelines.length > 0 && (
+                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                  {securityGuidelines.map((item, index) => (
+                    <div
+                      key={index}
+                      className="flex items-start justify-between gap-2 p-2 bg-background border border-border rounded-lg text-xs group hover:border-primary/40 transition-colors"
+                    >
+                      <div className="flex items-start gap-2 min-w-0">
+                        <span className="text-[10px] bg-muted text-muted-foreground font-mono rounded px-1.5 py-0.5 shrink-0 mt-0.5">
+                          {index + 1}
+                        </span>
+                        <span className="text-foreground leading-relaxed break-words">{item}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveGuideline(index)}
+                        className="text-muted-foreground hover:text-destructive p-1 rounded transition-colors cursor-pointer shrink-0"
+                        title="Remove guideline"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Add Guideline Input */}
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="text"
+                  value={newGuideline}
+                  onChange={(e) => setNewGuideline(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddGuideline();
+                    }
+                  }}
+                  placeholder="e.g. Valid ticket and photo ID must be presented together at the turnstile..."
+                  className="flex-1 px-3 py-1.5 bg-background border border-border rounded-lg text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={handleAddGuideline}
+                  disabled={!newGuideline.trim()}
+                  className="text-xs h-8 px-3 gap-1 cursor-pointer shrink-0"
+                >
+                  <Plus className="size-3.5" />
+                  <span>Add Rule</span>
+                </Button>
+              </div>
+            </div>
+
+            {/* Accessible Levels & Floor Highlights */}
+            <div className="space-y-2 p-3.5 bg-muted/20 border border-border rounded-xl">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Layers className="size-4 text-primary" />
+                  <span className="text-xs font-semibold text-foreground">
+                    Accessible Levels & Highlights
+                  </span>
+                  <span className="text-[10px] bg-primary/10 text-primary font-medium px-2 py-0.5 rounded-full">
+                    {levelHighlights.length} tiers
+                  </span>
+                </div>
+              </div>
+
+              {/* Levels List */}
+              {levelHighlights.length > 0 && (
+                <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                  {levelHighlights.map((item, index) => (
+                    <div
+                      key={index}
+                      className="flex items-start justify-between gap-2 p-2 bg-background border border-border rounded-lg text-xs group hover:border-primary/40 transition-colors"
+                    >
+                      <div className="flex items-start gap-2 min-w-0">
+                        <span className="text-[10px] bg-muted text-muted-foreground font-mono rounded px-1.5 py-0.5 shrink-0 mt-0.5">
+                          Tier {index + 1}
+                        </span>
+                        <span className="text-foreground leading-relaxed break-words">{item}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveLevelHighlight(index)}
+                        className="text-muted-foreground hover:text-destructive p-1 rounded transition-colors cursor-pointer shrink-0"
+                        title="Remove highlight"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Add Level Input */}
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="text"
+                  value={newLevelHighlight}
+                  onChange={(e) => setNewLevelHighlight(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddLevelHighlight();
+                    }
+                  }}
+                  placeholder="e.g. Level 1: Arena Floor & Lower Cavea (Imperial seating tiers)..."
+                  className="flex-1 px-3 py-1.5 bg-background border border-border rounded-lg text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={handleAddLevelHighlight}
+                  disabled={!newLevelHighlight.trim()}
+                  className="text-xs h-8 px-3 gap-1 cursor-pointer shrink-0"
+                >
+                  <Plus className="size-3.5" />
+                  <span>Add Level</span>
+                </Button>
+              </div>
+            </div>
+
+            {/* Spoken Audio Intro Script (TTS) */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                  <Volume2 className="size-3.5 text-primary" />
+                  <span>Spoken Audio Orientation Script (TTS)</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={handleGenerateAudioScript}
+                  className="text-[11px] text-primary hover:underline font-medium cursor-pointer flex items-center gap-1"
+                  title="Auto-compose TTS script from identity, era, summary, and security rules"
+                >
+                  <Sparkles className="size-3" />
+                  <span>Generate from Summary</span>
+                </button>
+              </div>
+              <textarea
+                rows={3}
+                value={audioIntroText}
+                onChange={(e) => setAudioIntroText(e.target.value)}
+                placeholder="Script narrated automatically to visitors via Text-to-Speech upon approaching within 10 meters of this monument entrance..."
+                className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              />
             </div>
           </div>
 

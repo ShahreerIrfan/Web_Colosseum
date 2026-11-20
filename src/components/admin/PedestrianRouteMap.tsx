@@ -134,18 +134,38 @@ export function PedestrianRouteMap({
     points.forEach(({ latitude, longitude }, index) => {
       const marker = L.marker([latitude, longitude], {
         draggable: Boolean(onChange),
-        title: `Waypoint ${index + 1}`,
+        title: `Stop ${index + 1}`,
         icon: L.divIcon({
-          className: 'rounded-full bg-primary text-primary-foreground text-center leading-6',
-          html: String(index + 1),
-          iconSize: [24, 24],
+          className:
+            'flex items-center justify-center rounded-full bg-primary text-primary-foreground text-center font-bold text-xs shadow-md border-2 border-white cursor-grab active:cursor-grabbing',
+          html: `<span>${index + 1}</span>`,
+          iconSize: [26, 26],
         }),
       }).addTo(group);
+
+      if (onChange) {
+        const popupDiv = document.createElement('div');
+        popupDiv.className = 'text-xs p-1 space-y-1 font-sans min-w-[140px]';
+        popupDiv.innerHTML = `<div class="font-bold text-sm text-foreground">Stop ${index + 1}</div><div class="text-muted-foreground font-mono text-[11px]">${latitude.toFixed(6)}, ${longitude.toFixed(6)}</div>`;
+        const deleteBtn = document.createElement('button');
+        deleteBtn.className =
+          'mt-1.5 px-2 py-1 rounded bg-red-600 text-white text-[11px] font-semibold hover:bg-red-700 block w-full text-center cursor-pointer';
+        deleteBtn.textContent = 'Delete Stop';
+        deleteBtn.onclick = (e) => {
+          e.stopPropagation();
+          latest.current.onChange?.(latest.current.points.filter((_, i) => i !== index));
+        };
+        popupDiv.appendChild(deleteBtn);
+        marker.bindPopup(popupDiv);
+      }
+
       marker.on('dragend', () => {
         const point = marker.getLatLng().wrap();
         latest.current.onChange?.(
           latest.current.points.map((previous, i) =>
-            i === index ? { latitude: point.lat, longitude: point.lng } : previous
+            i === index
+              ? { latitude: Number(point.lat.toFixed(6)), longitude: Number(point.lng.toFixed(6)) }
+              : previous
           )
         );
       });
@@ -155,7 +175,7 @@ export function PedestrianRouteMap({
   return (
     <div
       ref={container}
-      className="isolate h-80 rounded-md border"
+      className="isolate h-96 w-full rounded-md border"
       aria-label="Walking route map"
     />
   );

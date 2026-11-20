@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { isAxiosError } from 'axios';
 import { latLng } from 'leaflet';
+import { ArrowDown, ArrowUp, MapPin, Plus, RotateCcw, Trash2 } from 'lucide-react';
 import api from '@/apis/axios';
 import ModuleLoading from '@/components/admin/ModuleLoading';
 import { PedestrianRouteMap, type RoutePoint } from '@/components/admin/PedestrianRouteMap';
@@ -12,7 +13,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { Landmark } from '@/types/api/landmarkTypes';
 import type { BaseSuccessResponse } from '@/types/api/CommonTypes';
 
 interface WalkingRoute {
@@ -31,7 +31,11 @@ interface WalkingRoute {
 }
 
 const endpoint = '/pedestrian-routes';
-type LandmarkOption = Pick<Landmark, 'code' | 'name'>;
+type LandmarkOption = {
+  code: string;
+  name: string;
+  center?: { latitude: number; longitude: number };
+};
 const inputClass = 'block w-full rounded border bg-background p-2';
 const emptyRoute: WalkingRoute = {
   routeId: '',
@@ -110,6 +114,98 @@ export default function PedestrianRoutes() {
         )
       );
     }, 0) ?? 0;
+
+  const fromLandmark = landmarks.find((l) => l.code === draft?.fromLandmarkCode);
+  const toLandmark = landmarks.find((l) => l.code === draft?.toLandmarkCode);
+
+  function addStopToEnd() {
+    if (!draft) return;
+    const count = draft.waypoints.length;
+    let nextPoint: RoutePoint;
+    if (count === 0) {
+      nextPoint = fromLandmark?.center ?? { latitude: 41.89021, longitude: 12.492231 };
+    } else if (count === 1) {
+      if (toLandmark?.center) {
+        nextPoint = {
+          latitude: Number(
+            ((draft.waypoints[0].latitude + toLandmark.center.latitude) / 2).toFixed(6)
+          ),
+          longitude: Number(
+            ((draft.waypoints[0].longitude + toLandmark.center.longitude) / 2).toFixed(6)
+          ),
+        };
+      } else {
+        nextPoint = {
+          latitude: Number((draft.waypoints[0].latitude + 0.0003).toFixed(6)),
+          longitude: Number((draft.waypoints[0].longitude + 0.0003).toFixed(6)),
+        };
+      }
+    } else {
+      const last = draft.waypoints[count - 1];
+      const prev = draft.waypoints[count - 2];
+      const dLat = last.latitude - prev.latitude;
+      const dLng = last.longitude - prev.longitude;
+      nextPoint = {
+        latitude: Number((last.latitude + dLat * 0.5).toFixed(6)),
+        longitude: Number((last.longitude + dLng * 0.5).toFixed(6)),
+      };
+    }
+    setDraft({ ...draft, waypoints: [...draft.waypoints, nextPoint] });
+  }
+
+  function insertStopAfter(index: number) {
+    if (!draft) return;
+    const count = draft.waypoints.length;
+    const curr = draft.waypoints[index];
+    let newPoint: RoutePoint;
+    if (index + 1 < count) {
+      const next = draft.waypoints[index + 1];
+      newPoint = {
+        latitude: Number(((curr.latitude + next.latitude) / 2).toFixed(6)),
+        longitude: Number(((curr.longitude + next.longitude) / 2).toFixed(6)),
+      };
+    } else {
+      newPoint = {
+        latitude: Number((curr.latitude + 0.0002).toFixed(6)),
+        longitude: Number((curr.longitude + 0.0002).toFixed(6)),
+      };
+    }
+    const waypoints = [...draft.waypoints];
+    waypoints.splice(index + 1, 0, newPoint);
+    setDraft({ ...draft, waypoints });
+  }
+
+  function updateStopCoordinate(index: number, field: 'latitude' | 'longitude', value: number) {
+    if (!draft || isNaN(value)) return;
+    const waypoints = [...draft.waypoints];
+    waypoints[index] = { ...waypoints[index], [field]: value };
+    setDraft({ ...draft, waypoints });
+  }
+
+  function moveStop(index: number, direction: 'up' | 'down') {
+    if (!draft) return;
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= draft.waypoints.length) return;
+    const waypoints = [...draft.waypoints];
+    [waypoints[index], waypoints[targetIndex]] = [waypoints[targetIndex], waypoints[index]];
+    setDraft({ ...draft, waypoints });
+  }
+
+  function removeStop(index: number) {
+    if (!draft) return;
+    setDraft({
+      ...draft,
+      waypoints: draft.waypoints.filter((_, i) => i !== index),
+    });
+  }
+
+  function reverseStopOrder() {
+    if (!draft || draft.waypoints.length < 2) return;
+    setDraft({
+      ...draft,
+      waypoints: [...draft.waypoints].reverse(),
+    });
+  }
 
   async function save() {
     if (!draft) return;
@@ -276,55 +372,208 @@ export default function PedestrianRoutes() {
                 </label>
               ))}
             </div>
-            <p className="text-sm">
-              Click to add walking points in order. Drag a numbered pin to adjust it.
-            </p>
-            <PedestrianRouteMap
-              key={editingId ?? 'new'}
-              points={draft.waypoints}
-              onChange={(waypoints) => {
-                if (!busy) setDraft({ ...draft, waypoints });
-              }}
-            />
-            <ol className="max-h-56 space-y-2 overflow-y-auto">
-              {draft.waypoints.map((point, index) => (
-                <li key={index} className="flex flex-wrap items-center gap-2 text-sm">
-                  <span>
-                    Point {index + 1} · {point.latitude.toFixed(6)}, {point.longitude.toFixed(6)}
+            <div className="space-y-3 rounded-lg border bg-card p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 className="flex items-center gap-2 text-base font-semibold">
+                    <MapPin className="h-4 w-4 text-primary" />
+                    Walking Stops & Waypoints ({draft.waypoints.length}{' '}
+                    {draft.waypoints.length === 1 ? 'stop' : 'stops'})
+                  </h3>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Click anywhere on the map to add stops in order. Drag pins to move them, or edit
+                    coordinates below.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    type="button"
+                    onClick={reverseStopOrder}
+                    disabled={draft.waypoints.length < 2}
+                    title="Reverse the walking direction of stops"
+                  >
+                    <RotateCcw className="mr-1 h-3.5 w-3.5" />
+                    Reverse
+                  </Button>
+                  <Button
+                    size="sm"
+                    type="button"
+                    onClick={addStopToEnd}
+                    title="Add a new stop to the end of the route"
+                  >
+                    <Plus className="mr-1 h-3.5 w-3.5" />
+                    Add Stop
+                  </Button>
+                </div>
+              </div>
+
+              <PedestrianRouteMap
+                key={editingId ?? 'new'}
+                points={draft.waypoints}
+                start={fromLandmark?.center}
+                end={toLandmark?.center}
+                onChange={(waypoints) => {
+                  if (!busy) setDraft({ ...draft, waypoints });
+                }}
+              />
+
+              <div className="space-y-2 pt-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Stops Sequence ({draft.waypoints.length} stops)
                   </span>
+                  {draft.waypoints.length > 0 && (
+                    <button
+                      type="button"
+                      className="cursor-pointer text-xs text-destructive hover:underline"
+                      onClick={() => {
+                        if (window.confirm('Remove all stops?')) {
+                          setDraft({ ...draft, waypoints: [] });
+                        }
+                      }}
+                    >
+                      Clear all stops
+                    </button>
+                  )}
+                </div>
+
+                {draft.waypoints.length === 0 ? (
+                  <div className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+                    <MapPin className="mx-auto mb-2 h-8 w-8 opacity-40" />
+                    <p className="font-medium">No walking stops added yet.</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Click anywhere on the map above to place Stop 1, or click{' '}
+                      <button
+                        type="button"
+                        onClick={addStopToEnd}
+                        className="font-semibold text-primary underline cursor-pointer"
+                      >
+                        + Add Stop
+                      </button>
+                      .
+                    </p>
+                  </div>
+                ) : (
+                  <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
+                    {draft.waypoints.map((point, index) => (
+                      <div
+                        key={index}
+                        className="flex flex-wrap items-center justify-between gap-2 rounded-md border bg-background p-2.5 text-xs shadow-xs transition-colors hover:border-primary/50"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary font-bold text-primary-foreground shadow-xs">
+                            {index + 1}
+                          </span>
+                          <span className="font-semibold">Stop {index + 1}</span>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <label className="flex items-center gap-1">
+                            <span className="font-medium text-muted-foreground">Lat:</span>
+                            <input
+                              type="number"
+                              step="any"
+                              className="w-28 rounded border bg-card px-2 py-1 font-mono text-xs"
+                              value={point.latitude}
+                              onChange={(e) =>
+                                updateStopCoordinate(index, 'latitude', parseFloat(e.target.value))
+                              }
+                            />
+                          </label>
+                          <label className="flex items-center gap-1">
+                            <span className="font-medium text-muted-foreground">Lng:</span>
+                            <input
+                              type="number"
+                              step="any"
+                              className="w-28 rounded border bg-card px-2 py-1 font-mono text-xs"
+                              value={point.longitude}
+                              onChange={(e) =>
+                                updateStopCoordinate(index, 'longitude', parseFloat(e.target.value))
+                              }
+                            />
+                          </label>
+                        </div>
+
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            type="button"
+                            className="h-8 px-2 text-xs"
+                            title="Insert a new stop right after this one"
+                            onClick={() => insertStopAfter(index)}
+                          >
+                            <Plus className="mr-0.5 h-3.5 w-3.5 text-primary" />
+                            Insert
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            type="button"
+                            className="h-8 w-8 p-0"
+                            disabled={index === 0}
+                            title="Move stop earlier"
+                            onClick={() => moveStop(index, 'up')}
+                          >
+                            <ArrowUp className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            type="button"
+                            className="h-8 w-8 p-0"
+                            disabled={index === draft.waypoints.length - 1}
+                            title="Move stop later"
+                            onClick={() => moveStop(index, 'down')}
+                          >
+                            <ArrowDown className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            type="button"
+                            className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            title="Delete this stop"
+                            onClick={() => removeStop(index)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="pt-1">
                   <Button
                     size="sm"
                     variant="outline"
                     type="button"
-                    disabled={index === 0}
-                    onClick={() => {
-                      const waypoints = [...draft.waypoints];
-                      [waypoints[index - 1], waypoints[index]] = [
-                        waypoints[index],
-                        waypoints[index - 1],
-                      ];
-                      setDraft({ ...draft, waypoints });
-                    }}
+                    className="w-full border-dashed"
+                    onClick={addStopToEnd}
                   >
-                    Move up
+                    <Plus className="mr-1 h-4 w-4 text-primary" />+ Add Another Stop (Stop{' '}
+                    {draft.waypoints.length + 1})
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    type="button"
-                    onClick={() =>
-                      setDraft({
-                        ...draft,
-                        waypoints: draft.waypoints.filter((_, i) => i !== index),
-                      })
-                    }
-                  >
-                    Remove
-                  </Button>
-                </li>
-              ))}
-            </ol>
-            <p>Calculated distance: {Math.round(distance)} m</p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between rounded bg-muted/50 p-2.5 text-xs text-muted-foreground">
+                <span>
+                  Total Stops: <strong className="text-foreground">{draft.waypoints.length}</strong>
+                </span>
+                <span>
+                  Calculated Distance:{' '}
+                  <strong className="text-foreground">{Math.round(distance)} m</strong>
+                </span>
+                <span>
+                  Est. Walk:{' '}
+                  <strong className="text-foreground">{draft.estimatedWalkMinutes} min</strong>
+                </span>
+              </div>
+            </div>
             <label className="block">
               Estimated walking time (minutes)
               <input

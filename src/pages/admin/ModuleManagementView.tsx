@@ -255,6 +255,18 @@ function ModuleCatalog({ moduleKey }: { moduleKey: string }) {
   const [viewpoints, setViewpoints] = useState<ViewpointModel[]>([]);
   const [viewpointLoadFailed, setViewpointLoadFailed] = useState(false);
   const [viewpointSearch, setViewpointSearch] = useState('');
+  const [collapsedViewpointLandmarks, setCollapsedViewpointLandmarks] = useState<
+    Record<string, boolean>
+  >({});
+  const [collapsedViewpointFloors, setCollapsedViewpointFloors] = useState<Record<string, boolean>>(
+    {}
+  );
+  const [targetLandmarkForNewViewpoint, setTargetLandmarkForNewViewpoint] = useState<
+    string | undefined
+  >(undefined);
+  const [targetFloorForNewViewpoint, setTargetFloorForNewViewpoint] = useState<string | undefined>(
+    undefined
+  );
 
   const user = useMemo<UserPayload | null>(() => {
     try {
@@ -333,18 +345,6 @@ function ModuleCatalog({ moduleKey }: { moduleKey: string }) {
     );
   }, [floors, floorSearch]);
 
-  const filteredViewpoints = useMemo(() => {
-    if (!viewpointSearch.trim()) return viewpoints;
-    const q = viewpointSearch.toLowerCase();
-    return viewpoints.filter(
-      (vp) =>
-        vp.title.toLowerCase().includes(q) ||
-        vp.id.toLowerCase().includes(q) ||
-        vp.floorId.toLowerCase().includes(q) ||
-        (vp.description && vp.description.toLowerCase().includes(q))
-    );
-  }, [viewpoints, viewpointSearch]);
-
   const groupedFloors = useMemo<
     Array<{
       landmarkCode: string;
@@ -420,6 +420,241 @@ function ModuleCatalog({ moduleKey }: { moduleKey: string }) {
     });
     setCollapsedLandmarks(allCollapsed);
   }, [groupedFloors]);
+
+  const groupedViewpoints = useMemo<
+    Array<{
+      landmarkCode: string;
+      landmarkName: string;
+      landmarkLogo?: string;
+      totalHotspots: number;
+      floors: Array<{
+        floorId: string;
+        displayName: string;
+        shortName?: string;
+        levelIndex?: number;
+        floorModel?: FloorModel;
+        viewpoints: ViewpointModel[];
+      }>;
+    }>
+  >(() => {
+    const norm = (str?: string) => (str || '').toLowerCase().replace(/[-_]/g, '');
+
+    const landmarkMap = new Map<string, LandmarkModel>();
+    landmarks.forEach((lm) => {
+      landmarkMap.set(norm(lm.code), lm);
+      if (lm.id) landmarkMap.set(norm(lm.id), lm);
+    });
+
+    const floorMap = new Map<string, FloorModel>();
+    floors.forEach((fl) => {
+      floorMap.set(norm(fl.floorId), fl);
+      if (fl.id) floorMap.set(norm(fl.id), fl);
+    });
+
+    const q = viewpointSearch.trim().toLowerCase();
+    const matchesSearch = (vp: ViewpointModel, fl?: FloorModel, lm?: LandmarkModel) => {
+      if (!q) return true;
+      return (
+        vp.title.toLowerCase().includes(q) ||
+        vp.id.toLowerCase().includes(q) ||
+        vp.floorId.toLowerCase().includes(q) ||
+        (vp.description && vp.description.toLowerCase().includes(q)) ||
+        (fl &&
+          (fl.displayName.toLowerCase().includes(q) ||
+            fl.shortName.toLowerCase().includes(q) ||
+            fl.floorId.toLowerCase().includes(q))) ||
+        (lm && (lm.name.toLowerCase().includes(q) || lm.code.toLowerCase().includes(q)))
+      );
+    };
+
+    const matchingViewpoints = viewpoints.filter((vp) => {
+      const fl = floorMap.get(norm(vp.floorId));
+      const lmCode = fl?.landmarkCode || 'colosseum';
+      const lm = landmarkMap.get(norm(lmCode));
+      return matchesSearch(vp, fl, lm);
+    });
+
+    type FloorGroup = {
+      floorId: string;
+      displayName: string;
+      shortName?: string;
+      levelIndex?: number;
+      floorModel?: FloorModel;
+      viewpoints: ViewpointModel[];
+    };
+
+    const landmarkGroups = new Map<
+      string,
+      {
+        landmarkCode: string;
+        landmarkName: string;
+        landmarkLogo?: string;
+        floorsMap: Map<string, FloorGroup>;
+      }
+    >();
+
+    // When no search query is active, preload registered landmarks and their floors
+    if (!q) {
+      landmarks.forEach((lm) => {
+        const lmKey = norm(lm.code);
+        landmarkGroups.set(lmKey, {
+          landmarkCode: lm.code,
+          landmarkName: lm.name,
+          landmarkLogo: lm.thumbnailUrl || lm.assetPath,
+          floorsMap: new Map(),
+        });
+      });
+
+      floors.forEach((fl) => {
+        const code = fl.landmarkCode || 'colosseum';
+        const lmKey = norm(code);
+        let lmGroup = landmarkGroups.get(lmKey);
+        if (!lmGroup) {
+          const matchedLm = landmarkMap.get(lmKey);
+          lmGroup = {
+            landmarkCode: matchedLm?.code || code,
+            landmarkName: matchedLm?.name || code,
+            landmarkLogo: matchedLm?.thumbnailUrl || matchedLm?.assetPath,
+            floorsMap: new Map(),
+          };
+          landmarkGroups.set(lmKey, lmGroup);
+        }
+
+        const flKey = norm(fl.floorId || fl.id);
+        if (!lmGroup.floorsMap.has(flKey)) {
+          lmGroup.floorsMap.set(flKey, {
+            floorId: fl.floorId || fl.id,
+            displayName: fl.displayName || fl.shortName || fl.floorId,
+            shortName: fl.shortName,
+            levelIndex: fl.levelIndex,
+            floorModel: fl,
+            viewpoints: [],
+          });
+        }
+      });
+    }
+
+    matchingViewpoints.forEach((vp) => {
+      const matchedFloor = floorMap.get(norm(vp.floorId));
+      const rawLandmarkCode = matchedFloor?.landmarkCode || 'colosseum';
+      const lmKey = norm(rawLandmarkCode);
+
+      let lmGroup = landmarkGroups.get(lmKey);
+      if (!lmGroup) {
+        const matchedLm = landmarkMap.get(lmKey);
+        const landmarkName =
+          matchedLm?.name ||
+          (rawLandmarkCode === 'colosseum'
+            ? 'Colosseum (Flavian Amphitheatre)'
+            : rawLandmarkCode
+                .split(/[-_]/)
+                .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+                .join(' '));
+        lmGroup = {
+          landmarkCode: matchedLm?.code || rawLandmarkCode,
+          landmarkName,
+          landmarkLogo: matchedLm?.thumbnailUrl || matchedLm?.assetPath,
+          floorsMap: new Map(),
+        };
+        landmarkGroups.set(lmKey, lmGroup);
+      }
+
+      const flKey = norm(vp.floorId);
+      let floorGroup = lmGroup.floorsMap.get(flKey);
+      if (!floorGroup) {
+        floorGroup = {
+          floorId: vp.floorId,
+          displayName: matchedFloor?.displayName || `Floor: ${vp.floorId}`,
+          shortName: matchedFloor?.shortName,
+          levelIndex: matchedFloor?.levelIndex,
+          floorModel: matchedFloor,
+          viewpoints: [],
+        };
+        lmGroup.floorsMap.set(flKey, floorGroup);
+      }
+
+      floorGroup.viewpoints.push(vp);
+    });
+
+    const result: Array<{
+      landmarkCode: string;
+      landmarkName: string;
+      landmarkLogo?: string;
+      totalHotspots: number;
+      floors: FloorGroup[];
+    }> = [];
+
+    landmarkGroups.forEach((lmGroup) => {
+      const floorsList = Array.from(lmGroup.floorsMap.values());
+      floorsList.sort((a, b) => {
+        const aIdx = a.levelIndex ?? 999;
+        const bIdx = b.levelIndex ?? 999;
+        return aIdx - bIdx;
+      });
+
+      const totalHotspots = floorsList.reduce((acc, f) => acc + f.viewpoints.length, 0);
+
+      if (q && totalHotspots === 0) return;
+      if (!q && floorsList.length === 0 && totalHotspots === 0) return;
+
+      floorsList.forEach((fl) => {
+        fl.viewpoints.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      });
+
+      result.push({
+        landmarkCode: lmGroup.landmarkCode,
+        landmarkName: lmGroup.landmarkName,
+        landmarkLogo: lmGroup.landmarkLogo,
+        totalHotspots,
+        floors: q ? floorsList.filter((f) => f.viewpoints.length > 0) : floorsList,
+      });
+    });
+
+    result.sort((a, b) => {
+      if (norm(a.landmarkCode) === 'colosseum') return -1;
+      if (norm(b.landmarkCode) === 'colosseum') return 1;
+      return b.totalHotspots - a.totalHotspots;
+    });
+
+    return result;
+  }, [viewpoints, floors, landmarks, viewpointSearch]);
+
+  const totalFilteredHotspots = useMemo(
+    () => groupedViewpoints.reduce((acc, g) => acc + g.totalHotspots, 0),
+    [groupedViewpoints]
+  );
+
+  const toggleViewpointLandmarkCollapse = useCallback((landmarkCode: string) => {
+    setCollapsedViewpointLandmarks((prev) => ({
+      ...prev,
+      [landmarkCode]: !prev[landmarkCode],
+    }));
+  }, []);
+
+  const toggleViewpointFloorCollapse = useCallback((floorKey: string) => {
+    setCollapsedViewpointFloors((prev) => ({
+      ...prev,
+      [floorKey]: !prev[floorKey],
+    }));
+  }, []);
+
+  const handleExpandAllViewpoints = useCallback(() => {
+    setCollapsedViewpointLandmarks({});
+    setCollapsedViewpointFloors({});
+  }, []);
+
+  const handleCollapseAllViewpoints = useCallback(() => {
+    const allLm: Record<string, boolean> = {};
+    const allFl: Record<string, boolean> = {};
+    groupedViewpoints.forEach((lm) => {
+      allLm[lm.landmarkCode] = true;
+      lm.floors.forEach((fl) => {
+        allFl[`${lm.landmarkCode}_${fl.floorId}`] = true;
+      });
+    });
+    setCollapsedViewpointLandmarks(allLm);
+    setCollapsedViewpointFloors(allFl);
+  }, [groupedViewpoints]);
 
   // If module key doesn't exist, redirect to error
   if (!moduleDef) {
@@ -585,11 +820,15 @@ function ModuleCatalog({ moduleKey }: { moduleKey: string }) {
             setIsCreateViewpointOpen(open);
             if (!open) {
               setEditingViewpoint(null);
+              setTargetLandmarkForNewViewpoint(undefined);
+              setTargetFloorForNewViewpoint(undefined);
             }
           }}
           viewpointToEdit={editingViewpoint}
           landmarks={landmarks}
           floors={floors}
+          defaultLandmarkCode={targetLandmarkForNewViewpoint}
+          defaultFloorId={targetFloorForNewViewpoint}
           onCreated={(newVp) => {
             setViewpoints((prev) => [newVp, ...prev.filter((v) => v.id !== newVp.id)]);
           }}
@@ -925,6 +1164,8 @@ function ModuleCatalog({ moduleKey }: { moduleKey: string }) {
                 setEditingFloor(null);
                 setIsCreateFloorOpen(true);
               } else if (moduleKey === 'viewpoints') {
+                setTargetLandmarkForNewViewpoint(undefined);
+                setTargetFloorForNewViewpoint(undefined);
                 setEditingViewpoint(null);
                 setIsCreateViewpointOpen(true);
               } else {
@@ -1062,7 +1303,40 @@ function ModuleCatalog({ moduleKey }: { moduleKey: string }) {
                 </div>
               </div>
             )}
-            {moduleKey !== 'landmarks' && moduleKey !== 'floors' && (
+            {moduleKey === 'viewpoints' && (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={
+                    Object.values(collapsedViewpointLandmarks).some(Boolean) ||
+                    Object.values(collapsedViewpointFloors).some(Boolean)
+                      ? handleExpandAllViewpoints
+                      : handleCollapseAllViewpoints
+                  }
+                  className="h-8 text-xs text-muted-foreground hover:text-foreground cursor-pointer px-2"
+                >
+                  {Object.values(collapsedViewpointLandmarks).some(Boolean) ||
+                  Object.values(collapsedViewpointFloors).some(Boolean)
+                    ? 'Expand All'
+                    : 'Collapse All'}
+                </Button>
+                <div className="relative">
+                  <Search className="size-3.5 absolute left-2.5 top-2.5 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Filter viewpoints by title, floor or ID..."
+                    value={viewpointSearch}
+                    onChange={(e) => setViewpointSearch(e.target.value)}
+                    className="pl-8 pr-3 py-1.5 bg-background border border-input rounded-lg text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary w-48 sm:w-64"
+                  />
+                </div>
+                <span className="text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary font-bold whitespace-nowrap">
+                  {`${viewpoints.length} Registered`}
+                </span>
+              </div>
+            )}
+            {moduleKey !== 'landmarks' && moduleKey !== 'floors' && moduleKey !== 'viewpoints' && (
               <span className="text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary font-bold whitespace-nowrap">
                 {`${moduleDef.sampleData.length} Registered`}
               </span>
@@ -1311,35 +1585,16 @@ function ModuleCatalog({ moduleKey }: { moduleKey: string }) {
             )}
           </div>
         ) : moduleKey === 'viewpoints' ? (
-          /* Live Viewpoints Catalog */
-          <div className="p-4 sm:p-6 space-y-4">
-            {/* Toolbar: Search Viewpoint */}
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div className="relative flex-1 min-w-[200px] max-w-sm">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
-                <input
-                  type="text"
-                  placeholder="Filter viewpoints by title, floor or ID..."
-                  value={viewpointSearch}
-                  onChange={(e) => setViewpointSearch(e.target.value)}
-                  className="w-full pl-9 pr-3 py-1.5 bg-background border border-border rounded-lg text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
-                />
-              </div>
-
-              <div className="text-xs text-muted-foreground">
-                Total: <span className="font-semibold text-foreground">{viewpoints.length}</span>{' '}
-                hotspots
-              </div>
-            </div>
-
+          /* Viewpoints Grouped by Landmark & Floor */
+          <div>
             {viewpointLoadFailed ? (
-              <p role="alert" className="p-6 text-sm text-destructive">
+              <p role="alert" className="p-10 text-center text-sm text-destructive">
                 Unable to load Viewpoints. Reload the page to try again.
               </p>
-            ) : filteredViewpoints.length === 0 ? (
-              <div className="text-center py-12 space-y-2 border border-dashed border-border rounded-xl">
+            ) : groupedViewpoints.length === 0 || totalFilteredHotspots === 0 ? (
+              <div className="p-10 text-center space-y-2">
                 <Eye className="size-8 text-muted-foreground mx-auto" />
-                <p className="text-sm font-semibold text-foreground">No Viewpoints Found</p>
+                <p className="text-sm font-medium text-foreground">No Viewpoints Found</p>
                 <p className="text-xs text-muted-foreground">
                   {viewpointSearch
                     ? 'No viewpoints match your filter query.'
@@ -1347,58 +1602,253 @@ function ModuleCatalog({ moduleKey }: { moduleKey: string }) {
                 </p>
               </div>
             ) : (
-              <div className="divide-y divide-border border border-border rounded-xl overflow-hidden bg-card">
-                {filteredViewpoints.map((vp) => (
-                  <div
-                    key={vp.id}
-                    className="p-4 sm:px-6 hover:bg-muted/30 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                  >
-                    <div className="space-y-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-sm text-foreground truncate">
-                          {vp.title}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-                        {vp.latitude !== null && vp.longitude !== null && (
-                          <span className="flex items-center gap-1 font-mono text-[11px]">
-                            <MapPin className="size-3 text-primary shrink-0" />
-                            Lat: {vp.latitude.toFixed(5)}, Lng: {vp.longitude.toFixed(5)}
+              <div className="divide-y divide-border">
+                {groupedViewpoints.map((landmarkGroup) => {
+                  const isLandmarkCollapsed = Boolean(
+                    collapsedViewpointLandmarks[landmarkGroup.landmarkCode]
+                  );
+                  return (
+                    <div key={landmarkGroup.landmarkCode} className="transition-colors">
+                      {/* Landmark Accordion Header */}
+                      <div
+                        onClick={() => toggleViewpointLandmarkCollapse(landmarkGroup.landmarkCode)}
+                        className="p-3 sm:px-5 bg-muted/40 hover:bg-muted/70 transition-colors flex items-center justify-between gap-3 cursor-pointer select-none"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span
+                            aria-label={
+                              isLandmarkCollapsed
+                                ? 'Expand landmark viewpoints'
+                                : 'Collapse landmark viewpoints'
+                            }
+                            className="size-6 rounded-md flex items-center justify-center hover:bg-muted text-foreground transition-transform shrink-0"
+                          >
+                            <ChevronDown
+                              className={`size-4 text-foreground transition-transform duration-200 ${
+                                isLandmarkCollapsed ? '-rotate-90' : 'rotate-0'
+                              }`}
+                            />
                           </span>
-                        )}
-                        {vp.triggerRadiusMeters && <span>Trigger: {vp.triggerRadiusMeters}m</span>}
-                      </div>
-                    </div>
 
-                    <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={!canUpdate}
-                        onClick={() => {
-                          setEditingViewpoint(vp);
-                          setIsCreateViewpointOpen(true);
-                        }}
-                        className="h-8 px-3 text-xs border-border hover:bg-muted cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={!canDelete}
-                        onClick={() => {
-                          setViewpointToDelete(vp);
-                          setIsDeleteViewpointModalOpen(true);
-                        }}
-                        className="h-8 px-3 text-xs border-destructive/20 text-destructive hover:bg-destructive/10 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                      >
-                        Delete
-                      </Button>
+                          <div className="size-7 rounded-lg border border-border bg-card overflow-hidden shrink-0 flex items-center justify-center">
+                            {landmarkGroup.landmarkLogo ? (
+                              <img
+                                src={landmarkGroup.landmarkLogo}
+                                alt={landmarkGroup.landmarkName}
+                                className="size-full object-cover"
+                              />
+                            ) : (
+                              <Landmark className="size-4 text-primary" />
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2 flex-wrap min-w-0">
+                            <span className="font-bold text-sm text-foreground truncate">
+                              {landmarkGroup.landmarkName}
+                            </span>
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground border border-border font-medium">
+                              {landmarkGroup.totalHotspots}{' '}
+                              {landmarkGroup.totalHotspots === 1 ? 'Hotspot' : 'Hotspots'}
+                            </span>
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border/60">
+                              {landmarkGroup.floors.length}{' '}
+                              {landmarkGroup.floors.length === 1 ? 'Floor' : 'Floors'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={!canCreate}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setTargetLandmarkForNewViewpoint(landmarkGroup.landmarkCode);
+                              setTargetFloorForNewViewpoint(undefined);
+                              setEditingViewpoint(null);
+                              setIsCreateViewpointOpen(true);
+                            }}
+                            className="h-7 px-2.5 text-xs text-primary hover:text-primary hover:bg-primary/10 cursor-pointer disabled:opacity-40"
+                          >
+                            <Plus className="size-3 mr-1" />
+                            <span>Add Viewpoint</span>
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Floor Subgroups under Landmark */}
+                      {!isLandmarkCollapsed && (
+                        <div className="divide-y divide-border/60 bg-card border-t border-border/50">
+                          {landmarkGroup.floors.map((floorGroup) => {
+                            const floorCollapseKey = `${landmarkGroup.landmarkCode}_${floorGroup.floorId}`;
+                            const isFloorCollapsed = Boolean(
+                              collapsedViewpointFloors[floorCollapseKey]
+                            );
+                            return (
+                              <div key={floorGroup.floorId} className="transition-colors">
+                                {/* Floor Subheader */}
+                                <div
+                                  onClick={() => toggleViewpointFloorCollapse(floorCollapseKey)}
+                                  className="py-2.5 px-4 sm:px-8 bg-muted/20 hover:bg-muted/40 transition-colors flex items-center justify-between gap-3 cursor-pointer select-none border-b border-border/30"
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span
+                                      aria-label={
+                                        isFloorCollapsed
+                                          ? 'Expand floor viewpoints'
+                                          : 'Collapse floor viewpoints'
+                                      }
+                                      className="size-5 rounded flex items-center justify-center hover:bg-muted text-foreground transition-transform shrink-0"
+                                    >
+                                      <ChevronDown
+                                        className={`size-3.5 text-foreground transition-transform duration-200 ${
+                                          isFloorCollapsed ? '-rotate-90' : 'rotate-0'
+                                        }`}
+                                      />
+                                    </span>
+                                    <Layers className="size-3.5 text-primary/70 shrink-0" />
+                                    <span className="font-semibold text-xs sm:text-sm text-foreground truncate">
+                                      {floorGroup.displayName}
+                                    </span>
+                                    {floorGroup.shortName && (
+                                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border/60">
+                                        {floorGroup.shortName}
+                                      </span>
+                                    )}
+                                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-secondary text-secondary-foreground border border-border font-medium">
+                                      {floorGroup.viewpoints.length}{' '}
+                                      {floorGroup.viewpoints.length === 1 ? 'Hotspot' : 'Hotspots'}
+                                    </span>
+                                  </div>
+
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      disabled={!canCreate}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setTargetLandmarkForNewViewpoint(
+                                          landmarkGroup.landmarkCode
+                                        );
+                                        setTargetFloorForNewViewpoint(floorGroup.floorId);
+                                        setEditingViewpoint(null);
+                                        setIsCreateViewpointOpen(true);
+                                      }}
+                                      className="h-6 px-2 text-[11px] text-primary hover:text-primary hover:bg-primary/10 cursor-pointer disabled:opacity-40"
+                                    >
+                                      <Plus className="size-3 mr-1" />
+                                      <span>Add Hotspot</span>
+                                    </Button>
+                                  </div>
+                                </div>
+
+                                {/* Viewpoint Items under Floor */}
+                                {!isFloorCollapsed && (
+                                  <div>
+                                    {floorGroup.viewpoints.length === 0 ? (
+                                      <div className="py-3 px-8 sm:px-14 text-xs text-muted-foreground italic flex items-center justify-between">
+                                        <span>No viewpoints registered on this floor.</span>
+                                        {canCreate && (
+                                          <Button
+                                            variant="link"
+                                            size="sm"
+                                            onClick={() => {
+                                              setTargetLandmarkForNewViewpoint(
+                                                landmarkGroup.landmarkCode
+                                              );
+                                              setTargetFloorForNewViewpoint(floorGroup.floorId);
+                                              setEditingViewpoint(null);
+                                              setIsCreateViewpointOpen(true);
+                                            }}
+                                            className="h-auto p-0 text-xs text-primary"
+                                          >
+                                            + Add first hotspot
+                                          </Button>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <div className="divide-y divide-border/40 pl-6 sm:pl-12">
+                                        {floorGroup.viewpoints.map((vp) => (
+                                          <div
+                                            key={vp.id}
+                                            className="p-3 sm:px-6 hover:bg-muted/20 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                                          >
+                                            <div className="space-y-1 min-w-0">
+                                              <div className="flex items-center gap-2 flex-wrap">
+                                                <span className="font-bold text-sm text-foreground truncate">
+                                                  {vp.title}
+                                                </span>
+                                                {vp.order !== undefined && (
+                                                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border/50">
+                                                    #{vp.order}
+                                                  </span>
+                                                )}
+                                              </div>
+
+                                              <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                                                {vp.latitude !== null && vp.longitude !== null && (
+                                                  <span className="flex items-center gap-1 font-mono text-[11px]">
+                                                    <MapPin className="size-3 text-primary shrink-0" />
+                                                    Lat: {vp.latitude.toFixed(5)}, Lng:{' '}
+                                                    {vp.longitude.toFixed(5)}
+                                                  </span>
+                                                )}
+                                                {vp.triggerRadiusMeters && (
+                                                  <span>Trigger: {vp.triggerRadiusMeters}m</span>
+                                                )}
+                                                {vp.targetGazeHeadingDegrees !== null &&
+                                                  vp.targetGazeHeadingDegrees !== undefined && (
+                                                    <span>
+                                                      Heading: {vp.targetGazeHeadingDegrees}°
+                                                    </span>
+                                                  )}
+                                              </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                                              <Button
+                                                variant="outline"
+                                                size="sm"
+                                                disabled={!canUpdate}
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  setEditingViewpoint(vp);
+                                                  setIsCreateViewpointOpen(true);
+                                                }}
+                                                className="h-8 px-3 text-xs border-border hover:bg-muted cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                              >
+                                                Edit
+                                              </Button>
+                                              <Button
+                                                variant="outline"
+                                                size="sm"
+                                                disabled={!canDelete}
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  setViewpointToDelete(vp);
+                                                  setIsDeleteViewpointModalOpen(true);
+                                                }}
+                                                className="h-8 px-3 text-xs border-destructive/20 text-destructive hover:bg-destructive/10 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                              >
+                                                Delete
+                                              </Button>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

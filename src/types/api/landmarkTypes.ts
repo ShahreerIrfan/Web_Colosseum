@@ -57,6 +57,12 @@ export interface Landmark {
   name: string;
   romanEraName?: string;
   description: string;
+  era?: string;
+  builders?: string;
+  historicalSummary?: string;
+  securityGuidelines?: string[];
+  levelHighlights?: string[];
+  audioIntroText?: string;
   assetPath: string;
   cloudinaryPublicId?: string;
   thumbnailUrl: string;
