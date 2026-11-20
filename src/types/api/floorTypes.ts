@@ -15,6 +15,21 @@ export interface FloorMapAsset {
   cloudinaryPublicId?: string;
 }
 
+export interface FloorPortalModel {
+  id: string;
+  name: string;
+  fromFloorId: string;
+  toFloorId: string;
+  fromViewpointId?: string;
+  toViewpointId?: string;
+  normalizedX: number;
+  normalizedY: number;
+  coordinates?: FloorCoordinates;
+  elevationDeltaMeters: number;
+  isAscending: boolean;
+  triggerRadiusMeters: number;
+}
+
 export interface FloorModel {
   id: string;
   floorId: string;
@@ -30,6 +45,7 @@ export interface FloorModel {
   isPublished: boolean;
   elevationMeters?: number;
   autoFloorDetectionEnabled?: boolean;
+  portals?: FloorPortalModel[];
   viewpointCount?: number;
   createdAt?: string;
   updatedAt?: string;
@@ -49,6 +65,7 @@ export interface CreateFloorInput {
   isPublished: boolean;
   elevationMeters?: number;
   autoFloorDetectionEnabled?: boolean;
+  portals?: FloorPortalModel[];
 }
 
 export type UpdateFloorInput = Partial<CreateFloorInput>;

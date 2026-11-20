@@ -5,8 +5,20 @@ import api from '@/apis/axios';
 import { floorApi } from '@/apis/floor/floorApi';
 import { landmarkApi } from '@/apis/landmark/landmarkApi';
 import ModuleLoading from '@/components/admin/ModuleLoading';
-import { PedestrianRouteMap, type RoutePoint } from '@/components/admin/PedestrianRouteMap';
+import {
+  PedestrianRouteMap,
+  type PortalMarker,
+  type RoutePoint,
+} from '@/components/admin/PedestrianRouteMap';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
@@ -15,7 +27,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { BaseSuccessResponse } from '@/types/api/CommonTypes';
-import type { FloorModel } from '@/types/api/floorTypes';
+import type { FloorModel, FloorPortalModel } from '@/types/api/floorTypes';
 import { getUserPayload } from '@/utils/localStorageUtils';
 import { getEffectiveRbac } from '@/utils/rbacUtils';
 
@@ -37,7 +49,14 @@ type Segment = {
   instruction?: string;
   isPublished: boolean;
 };
-type FloorContent = { floorPublished: boolean; viewpoints: Stop[]; segments: Segment[] };
+type FloorContent = {
+  floorPublished: boolean;
+  elevationMeters?: number;
+  autoFloorDetectionEnabled?: boolean;
+  viewpoints: Stop[];
+  segments: Segment[];
+  portals?: FloorPortalModel[];
+};
 type Draft = {
   segmentId?: string;
   fromId: string;
@@ -46,6 +65,17 @@ type Draft = {
   geometryChanged: boolean;
   walkingDurationSeconds: number;
   instruction: string;
+};
+
+type PortalDraft = {
+  id?: string;
+  name: string;
+  fromViewpointId: string;
+  toFloorId: string;
+  toViewpointId?: string;
+  elevationDeltaMeters: number;
+  isAscending: boolean;
+  triggerRadiusMeters: number;
 };
 
 const emptyDraft: Draft = {
@@ -62,6 +92,10 @@ function errorMessage(error: unknown) {
   if (isAxiosError<{ message?: string }>(error))
     return error.response?.data?.message ?? error.message;
   return error instanceof Error ? error.message : 'The request failed.';
+}
+
+function generatePortalId(floorId: string): string {
+  return `portal_${floorId}_${Date.now()}`;
 }
 
 function segmentPath(segment: Segment, stops: Map<string, Stop>): RoutePoint[] {
@@ -126,6 +160,8 @@ export default function FloorItinerary() {
   const [floorId, setFloorId] = useState('');
   const [content, setContent] = useState<FloorContent | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
+  const [portalDraft, setPortalDraft] = useState<PortalDraft | null>(null);
+  const [portalError, setPortalError] = useState('');
   const [loadingCatalog, setLoadingCatalog] = useState(true);
   const [loadingFloor, setLoadingFloor] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -174,6 +210,8 @@ export default function FloorItinerary() {
     setFloorId(nextFloor);
     setContent(null);
     setDraft(null);
+    setPortalDraft(null);
+    setPortalError('');
     setError('');
     setNotice('');
     setLoadingFloor(Boolean(nextFloor));
@@ -208,6 +246,25 @@ export default function FloorItinerary() {
     value: code,
     label: landmarks.find((place) => place.code === code)?.name ?? code,
   }));
+  const targetFloorOptions = floors
+    .filter((f) => f.landmarkCode === landmark && f.floorId !== floorId)
+    .map((f) => ({ value: f.floorId, label: f.displayName }));
+  const mapPortals: PortalMarker[] = (content?.portals ?? []).flatMap((portal) => {
+    const vpPos = portal.fromViewpointId ? stops.get(portal.fromViewpointId)?.position : null;
+    const pos =
+      portal.coordinates?.latitude && portal.coordinates?.longitude ? portal.coordinates : vpPos;
+    if (!pos) return [];
+    const targetFloor = floors.find((f) => f.floorId === portal.toFloorId);
+    return [
+      {
+        id: portal.id,
+        name: portal.name,
+        position: pos,
+        toFloorLabel: targetFloor?.displayName ?? portal.toFloorId,
+        isAscending: portal.isAscending,
+      },
+    ];
+  });
 
   function edit(segment: Segment) {
     setError('');
@@ -320,6 +377,63 @@ export default function FloorItinerary() {
     });
   }
 
+  async function savePortal(draftPortal: PortalDraft) {
+    if (!content || !floorId) return;
+    if (!draftPortal.name.trim()) {
+      setPortalError('Please enter a name for this staircase portal.');
+      return;
+    }
+    if (!draftPortal.toFloorId) {
+      setPortalError('Please select a destination floor.');
+      return;
+    }
+    const anchorVp = stops.get(draftPortal.fromViewpointId);
+    const portalId = draftPortal.id || generatePortalId(floorId);
+    const coords = anchorVp?.position
+      ? { latitude: anchorVp.position.latitude, longitude: anchorVp.position.longitude }
+      : undefined;
+
+    const newPortal: FloorPortalModel = {
+      id: portalId,
+      name: draftPortal.name.trim(),
+      fromFloorId: floorId,
+      toFloorId: draftPortal.toFloorId,
+      fromViewpointId: draftPortal.fromViewpointId || undefined,
+      toViewpointId: draftPortal.toViewpointId || undefined,
+      normalizedX: 0.5,
+      normalizedY: 0.5,
+      coordinates: coords,
+      elevationDeltaMeters: draftPortal.elevationDeltaMeters,
+      isAscending: draftPortal.isAscending,
+      triggerRadiusMeters: draftPortal.triggerRadiusMeters || 15,
+    };
+
+    const existing = content.portals || [];
+    const updated = draftPortal.id
+      ? existing.map((p) => (p.id === draftPortal.id ? newPortal : p))
+      : [...existing, newPortal];
+
+    await mutate(async () => {
+      const saved = await floorApi.updateFloorPortals(floorId, updated);
+      setContent((current) => (current ? { ...current, portals: saved } : current));
+      setPortalDraft(null);
+      setNotice('Staircase portal saved and mobile sync broadcasted.');
+    });
+  }
+
+  async function deletePortal(portalIdToDelete: string) {
+    if (!content || !floorId) return;
+    if (!window.confirm('Delete this staircase level transition?')) return;
+    const existing = content.portals || [];
+    const updated = existing.filter((p) => p.id !== portalIdToDelete);
+
+    await mutate(async () => {
+      const saved = await floorApi.updateFloorPortals(floorId, updated);
+      setContent((current) => (current ? { ...current, portals: saved } : current));
+      setNotice('Staircase portal deleted.');
+    });
+  }
+
   if (loadingCatalog) return <ModuleLoading />;
 
   return (
@@ -374,6 +488,7 @@ export default function FloorItinerary() {
             start={from?.position}
             end={to?.position}
             stops={mapStops}
+            portals={mapPortals}
             connections={content.segments
               .filter((segment) => segment._id !== draft?.segmentId)
               .map((segment) => ({
@@ -588,6 +703,253 @@ export default function FloorItinerary() {
               </ul>
             </div>
           )}
+
+          {/* Staircase Portals & Level Transitions Section */}
+          <div className="space-y-3 rounded-md border p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="flex items-center gap-2 text-lg font-semibold">
+                  <span>🪜</span> Staircase Portals & Level Transitions
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Define staircases connecting this floor to other levels. When visitors approach
+                  these coordinates, the mobile app detects vertical transition and switches floors.
+                </p>
+              </div>
+              {canCreate && (
+                <Button
+                  variant="default"
+                  disabled={busy || targetFloorOptions.length === 0}
+                  onClick={() => {
+                    setPortalError('');
+                    setPortalDraft({
+                      name: '',
+                      fromViewpointId: eligible[0]?.id || '',
+                      toFloorId: targetFloorOptions[0]?.value || '',
+                      isAscending: true,
+                      elevationDeltaMeters: 4.5,
+                      triggerRadiusMeters: 15,
+                    });
+                  }}
+                >
+                  Add Staircase Portal
+                </Button>
+              )}
+            </div>
+
+            {targetFloorOptions.length === 0 && (
+              <p className="rounded-md bg-muted/40 p-3 text-sm text-muted-foreground">
+                ℹ️ This landmark only has one floor. Staircase level transitions connect multi-level
+                monuments.
+              </p>
+            )}
+
+            {(!content.portals || content.portals.length === 0) &&
+              targetFloorOptions.length > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  No staircase portals defined on this floor yet. Click &quot;Add Staircase
+                  Portal&quot; to define where stairs are located.
+                </p>
+              )}
+
+            {content.portals && content.portals.length > 0 && (
+              <ul className="divide-y rounded-md border">
+                {content.portals.map((portal) => {
+                  const anchor = stops.get(portal.fromViewpointId || '');
+                  const targetFloor = floors.find((f) => f.floorId === portal.toFloorId);
+                  return (
+                    <li
+                      key={portal.id}
+                      className="flex flex-wrap items-center justify-between gap-3 p-3"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">🪜</span>
+                          <span className="font-medium">{portal.name}</span>
+                          <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                            {portal.isAscending ? '▲ Ascent' : '▼ Descent'} (
+                            {portal.elevationDeltaMeters > 0
+                              ? `+${portal.elevationDeltaMeters}`
+                              : portal.elevationDeltaMeters}
+                            m)
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Near{' '}
+                          <strong>
+                            {anchor
+                              ? stopLabel(anchor.id)
+                              : portal.fromViewpointId || 'Coordinates'}
+                          </strong>{' '}
+                          → Connects to{' '}
+                          <strong>{targetFloor?.displayName || portal.toFloorId}</strong> · Trigger
+                          Radius: {portal.triggerRadiusMeters}m
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {canUpdate && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={busy}
+                            onClick={() => {
+                              setPortalError('');
+                              setPortalDraft({
+                                id: portal.id,
+                                name: portal.name,
+                                fromViewpointId: portal.fromViewpointId || '',
+                                toFloorId: portal.toFloorId,
+                                toViewpointId: portal.toViewpointId || '',
+                                isAscending: portal.isAscending,
+                                elevationDeltaMeters: portal.elevationDeltaMeters,
+                                triggerRadiusMeters: portal.triggerRadiusMeters,
+                              });
+                            }}
+                          >
+                            Edit
+                          </Button>
+                        )}
+                        {canDelete && (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            disabled={busy}
+                            onClick={() => void deletePortal(portal.id)}
+                          >
+                            Delete
+                          </Button>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+
+          <Dialog
+            open={Boolean(portalDraft)}
+            onOpenChange={(open) => !open && setPortalDraft(null)}
+          >
+            <DialogContent className="sm:max-w-[480px]">
+              <DialogHeader>
+                <DialogTitle>
+                  {portalDraft?.id ? 'Edit Staircase Portal' : 'Add Staircase Portal'}
+                </DialogTitle>
+                <DialogDescription>
+                  Configure a staircase transition connecting this floor to another level.
+                </DialogDescription>
+              </DialogHeader>
+              {portalDraft && (
+                <form
+                  className="space-y-4 py-2"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void savePortal(portalDraft);
+                  }}
+                >
+                  {portalError && (
+                    <p
+                      role="alert"
+                      className="rounded-md border border-destructive p-2 text-xs text-destructive"
+                    >
+                      {portalError}
+                    </p>
+                  )}
+                  <label className="block text-sm">
+                    Portal / Staircase Name
+                    <input
+                      className={inputClass}
+                      required
+                      placeholder="e.g. North Hypogeum Staircase to Level 1"
+                      value={portalDraft.name}
+                      onChange={(e) => setPortalDraft({ ...portalDraft, name: e.target.value })}
+                    />
+                  </label>
+                  <FieldSelect
+                    label="Anchor Viewpoint (Near Stairs)"
+                    value={portalDraft.fromViewpointId}
+                    options={eligible.map((s) => ({ value: s.id, label: stopLabel(s.id) }))}
+                    onChange={(val) => setPortalDraft({ ...portalDraft, fromViewpointId: val })}
+                  />
+                  <FieldSelect
+                    label="Destination Floor"
+                    value={portalDraft.toFloorId}
+                    options={targetFloorOptions}
+                    onChange={(val) => setPortalDraft({ ...portalDraft, toFloorId: val })}
+                  />
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="block text-sm">
+                      Transition Direction
+                      <select
+                        className={inputClass}
+                        value={portalDraft.isAscending ? 'asc' : 'desc'}
+                        onChange={(e) => {
+                          const isAsc = e.target.value === 'asc';
+                          setPortalDraft({
+                            ...portalDraft,
+                            isAscending: isAsc,
+                            elevationDeltaMeters: isAsc
+                              ? Math.abs(portalDraft.elevationDeltaMeters || 4.5)
+                              : -Math.abs(portalDraft.elevationDeltaMeters || 4.5),
+                          });
+                        }}
+                      >
+                        <option value="asc">▲ Ascent (Going Up)</option>
+                        <option value="desc">▼ Descent (Going Down)</option>
+                      </select>
+                    </label>
+                    <label className="block text-sm">
+                      Elevation Delta (Meters)
+                      <input
+                        type="number"
+                        step="0.5"
+                        className={inputClass}
+                        required
+                        value={portalDraft.elevationDeltaMeters}
+                        onChange={(e) =>
+                          setPortalDraft({
+                            ...portalDraft,
+                            elevationDeltaMeters: Number(e.target.value),
+                          })
+                        }
+                      />
+                    </label>
+                  </div>
+                  <label className="block text-sm">
+                    Trigger Radius (Meters around stairs)
+                    <input
+                      type="number"
+                      step="1"
+                      min="5"
+                      max="50"
+                      className={inputClass}
+                      required
+                      value={portalDraft.triggerRadiusMeters}
+                      onChange={(e) =>
+                        setPortalDraft({
+                          ...portalDraft,
+                          triggerRadiusMeters: Number(e.target.value),
+                        })
+                      }
+                    />
+                    <span className="mt-1 block text-xs text-muted-foreground">
+                      Recommended: 12m - 18m. When the visitor is within this radius, the mobile app
+                      triggers automatic level switching.
+                    </span>
+                  </label>
+                  <DialogFooter className="mt-4 flex gap-2">
+                    <Button type="button" variant="outline" onClick={() => setPortalDraft(null)}>
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={busy}>
+                      {portalDraft.id ? 'Save Portal' : 'Create Portal'}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              )}
+            </DialogContent>
+          </Dialog>
         </>
       )}
     </section>

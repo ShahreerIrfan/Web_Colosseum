@@ -1,7 +1,12 @@
 import api from '@/apis/axios';
 import { isAxiosError } from 'axios';
 import type { BaseSuccessResponse } from '@/types/api/CommonTypes';
-import type { CreateFloorInput, FloorModel, UpdateFloorInput } from '@/types/api/floorTypes';
+import type {
+  CreateFloorInput,
+  FloorModel,
+  FloorPortalModel,
+  UpdateFloorInput,
+} from '@/types/api/floorTypes';
 import { ENDPOINTS } from '@/utils/endPoints';
 
 interface BackendFloorRaw {
@@ -109,6 +114,17 @@ export const floorApi = {
   delete: async (id: string): Promise<boolean> => {
     await api.delete(ENDPOINTS.FLOORS.DELETE(id));
     return true;
+  },
+
+  updateFloorPortals: async (
+    floorId: string,
+    portals: FloorPortalModel[]
+  ): Promise<FloorPortalModel[]> => {
+    const { data } = await api.put<BaseSuccessResponse<FloorPortalModel[]>>(
+      `/floor-itineraries/${encodeURIComponent(floorId)}/portals`,
+      { portals }
+    );
+    return data.data;
   },
 };
 

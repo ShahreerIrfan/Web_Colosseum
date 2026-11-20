@@ -5,6 +5,14 @@ import { COLOSSEUM_DEFAULT_COORDS } from './mapConstants';
 
 export type RoutePoint = { latitude: number; longitude: number };
 
+export type PortalMarker = {
+  id: string;
+  name: string;
+  position: RoutePoint;
+  toFloorLabel?: string;
+  isAscending?: boolean;
+};
+
 export function PedestrianRouteMap({
   points,
   onChange,
@@ -12,6 +20,7 @@ export function PedestrianRouteMap({
   end,
   stops = [],
   connections = [],
+  portals = [],
 }: {
   points: RoutePoint[];
   onChange?: (points: RoutePoint[]) => void;
@@ -19,6 +28,7 @@ export function PedestrianRouteMap({
   end?: RoutePoint | null;
   stops?: { position: RoutePoint; label: string }[];
   connections?: { points: RoutePoint[]; published: boolean }[];
+  portals?: PortalMarker[];
 }) {
   const container = useRef<HTMLDivElement>(null);
   const layer = useRef<L.LayerGroup | null>(null);
@@ -114,6 +124,22 @@ export function PedestrianRouteMap({
         .bindTooltip(tooltip)
         .addTo(group);
     }
+    for (const portal of portals) {
+      const tooltip = document.createElement('div');
+      tooltip.className = 'font-sans text-xs p-1';
+      tooltip.innerHTML = `<strong>🪜 ${portal.name}</strong><br/><span>${portal.isAscending ? '▲ Ascending' : '▼ Descending'}${portal.toFloorLabel ? ` to ${portal.toFloorLabel}` : ''}</span>`;
+
+      L.marker([portal.position.latitude, portal.position.longitude], {
+        icon: L.divIcon({
+          className:
+            'flex items-center justify-center rounded-full bg-amber-500 text-white shadow-lg border-2 border-white text-sm cursor-pointer',
+          html: `<span>🪜</span>`,
+          iconSize: [28, 28],
+        }),
+      })
+        .bindTooltip(tooltip)
+        .addTo(group);
+    }
     const path = [...(start ? [start] : []), ...points, ...(end ? [end] : [])];
     L.polyline(
       path.map(({ latitude, longitude }) => L.latLng(latitude, longitude)),
@@ -170,7 +196,7 @@ export function PedestrianRouteMap({
         );
       });
     });
-  }, [points, start, end, stops, connections, onChange]);
+  }, [points, start, end, stops, connections, portals, onChange]);
 
   return (
     <div
