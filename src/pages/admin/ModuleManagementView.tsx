@@ -1540,9 +1540,27 @@ function ModuleCatalog({ moduleKey }: { moduleKey: string }) {
                               key={fl.floorId || fl.id}
                               className="py-3 px-4 sm:px-6 hover:bg-muted/20 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                             >
-                              <div className="min-w-0 flex items-center">
+                              <div className="min-w-0 flex items-center gap-2 flex-wrap">
                                 <span className="font-bold text-sm text-foreground">
                                   {fl.displayName}
+                                </span>
+                                {fl.elevationMeters !== undefined && (
+                                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-secondary text-secondary-foreground border border-border">
+                                    {fl.elevationMeters > 0
+                                      ? `+${fl.elevationMeters}m`
+                                      : `${fl.elevationMeters}m`}
+                                  </span>
+                                )}
+                                <span
+                                  className={`text-[10px] font-medium px-2 py-0.5 rounded-md border ${
+                                    fl.autoFloorDetectionEnabled !== false
+                                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                                      : 'bg-muted text-muted-foreground border-border'
+                                  }`}
+                                >
+                                  {fl.autoFloorDetectionEnabled !== false
+                                    ? 'Auto-Detect: ON'
+                                    : 'Auto-Detect: OFF'}
                                 </span>
                               </div>
 
