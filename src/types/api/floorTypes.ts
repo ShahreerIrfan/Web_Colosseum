@@ -28,6 +28,8 @@ export interface FloorModel {
   mapAsset?: FloorMapAsset;
   isAccessibleForTier?: string[];
   isPublished: boolean;
+  elevationMeters?: number;
+  autoFloorDetectionEnabled?: boolean;
   viewpointCount?: number;
   createdAt?: string;
   updatedAt?: string;
@@ -45,6 +47,8 @@ export interface CreateFloorInput {
   mapAsset?: FloorMapAsset;
   isAccessibleForTier: string[];
   isPublished: boolean;
+  elevationMeters?: number;
+  autoFloorDetectionEnabled?: boolean;
 }
 
 export type UpdateFloorInput = Partial<CreateFloorInput>;

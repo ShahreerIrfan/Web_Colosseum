@@ -78,6 +78,8 @@ export const CreateFloorDialog: React.FC<CreateFloorDialogProps> = ({
   const [isSlugCustomized, setIsSlugCustomized] = useState(false);
   const [levelIndex, setLevelIndex] = useState<number>(-1);
   const [floorNumberLabel, setFloorNumberLabel] = useState('Underground');
+  const [elevationMeters, setElevationMeters] = useState<number>(-6);
+  const [autoFloorDetectionEnabled, setAutoFloorDetectionEnabled] = useState<boolean>(true);
   const [landmarkCode, setLandmarkCode] = useState('colosseum');
   const [semanticLabel, setSemanticLabel] = useState('');
 
@@ -164,6 +166,8 @@ export const CreateFloorDialog: React.FC<CreateFloorDialogProps> = ({
     setMapNorthOffsetDegrees(-20.0);
     setSelectedTiers(['general', 'arena_priority', 'full_access']);
     setIsPublished(true);
+    setElevationMeters(-6);
+    setAutoFloorDetectionEnabled(true);
   }, []);
 
   // Populate form if editing
@@ -176,6 +180,8 @@ export const CreateFloorDialog: React.FC<CreateFloorDialogProps> = ({
         setIsSlugCustomized(true);
         setLevelIndex(floorToEdit.levelIndex ?? 1);
         setFloorNumberLabel(floorToEdit.floorNumberLabel || `Floor ${floorToEdit.levelIndex ?? 1}`);
+        setElevationMeters(floorToEdit.elevationMeters ?? (floorToEdit.levelIndex === -1 ? -6 : 0));
+        setAutoFloorDetectionEnabled(floorToEdit.autoFloorDetectionEnabled ?? true);
         setLandmarkCode(floorToEdit.landmarkCode || 'colosseum');
         setSemanticLabel(floorToEdit.semanticLabel || '');
 
@@ -264,6 +270,8 @@ export const CreateFloorDialog: React.FC<CreateFloorDialogProps> = ({
       },
       isAccessibleForTier: selectedTiers,
       isPublished,
+      elevationMeters,
+      autoFloorDetectionEnabled,
     };
 
     try {
@@ -387,6 +395,22 @@ export const CreateFloorDialog: React.FC<CreateFloorDialogProps> = ({
                   </div>
 
                   <div>
+                    <label className="block text-xs font-medium text-foreground mb-1">
+                      Elevation (meters)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.5"
+                      value={elevationMeters}
+                      onChange={(e) => setElevationMeters(parseFloat(e.target.value) || 0)}
+                      className="w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary font-mono"
+                    />
+                    <p className="text-[10px] text-muted-foreground mt-0.5">
+                      Relative height (e.g. -6m for Underground, 0m for Level 1, 25m for Attic)
+                    </p>
+                  </div>
+
+                  <div>
                     <label
                       htmlFor={landmarkSelectId}
                       className="block text-xs font-medium text-foreground mb-1"
@@ -406,6 +430,23 @@ export const CreateFloorDialog: React.FC<CreateFloorDialogProps> = ({
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                {/* Auto Floor Detection Toggle */}
+                <div className="flex items-center gap-2 pt-1 pb-1">
+                  <input
+                    type="checkbox"
+                    id="autoFloorDetectionEnabled"
+                    checked={autoFloorDetectionEnabled}
+                    onChange={(e) => setAutoFloorDetectionEnabled(e.target.checked)}
+                    className="h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
+                  />
+                  <label
+                    htmlFor="autoFloorDetectionEnabled"
+                    className="text-xs font-medium text-foreground cursor-pointer select-none"
+                  >
+                    Enable Automatic Floor Detection (Stairway Portals & Barometer)
+                  </label>
                 </div>
 
                 {/* Floor Identifier Slug */}
