@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { isAxiosError } from 'axios';
 import { latLng } from 'leaflet';
+import { MapPin } from 'lucide-react';
 import { TbStairs } from 'react-icons/tb';
 import api from '@/apis/axios';
 import { floorApi } from '@/apis/floor/floorApi';
 import { landmarkApi } from '@/apis/landmark/landmarkApi';
+import { LocationPickerMap } from '@/components/admin/LocationPickerMap';
 import ModuleLoading from '@/components/admin/ModuleLoading';
 import {
   PedestrianRouteMap,
@@ -78,6 +80,8 @@ type PortalDraft = {
   elevationDeltaMeters: number;
   isAscending: boolean;
   triggerRadiusMeters: number;
+  latitude: number | string;
+  longitude: number | string;
 };
 
 const emptyDraft: Draft = {
@@ -390,11 +394,24 @@ export default function FloorItinerary() {
       setPortalError('Please select a destination floor.');
       return;
     }
-    const anchorVp = stops.get(draftPortal.fromViewpointId);
+
+    const lat =
+      typeof draftPortal.latitude === 'number'
+        ? draftPortal.latitude
+        : parseFloat(draftPortal.latitude);
+    const lng =
+      typeof draftPortal.longitude === 'number'
+        ? draftPortal.longitude
+        : parseFloat(draftPortal.longitude);
+
+    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      setPortalError(
+        'Please specify valid GPS latitude (-90 to 90) and longitude (-180 to 180) coordinates.'
+      );
+      return;
+    }
+
     const portalId = draftPortal.id || generatePortalId(floorId);
-    const coords = anchorVp?.position
-      ? { latitude: anchorVp.position.latitude, longitude: anchorVp.position.longitude }
-      : undefined;
 
     const newPortal: FloorPortalModel = {
       id: portalId,
@@ -405,7 +422,7 @@ export default function FloorItinerary() {
       toViewpointId: draftPortal.toViewpointId || undefined,
       normalizedX: 0.5,
       normalizedY: 0.5,
-      coordinates: coords,
+      coordinates: { latitude: Number(lat.toFixed(6)), longitude: Number(lng.toFixed(6)) },
       elevationDeltaMeters: draftPortal.elevationDeltaMeters,
       isAscending: draftPortal.isAscending,
       triggerRadiusMeters: draftPortal.triggerRadiusMeters || 15,
@@ -674,6 +691,10 @@ export default function FloorItinerary() {
                     disabled={busy || targetFloorOptions.length === 0}
                     onClick={() => {
                       setPortalError('');
+                      const initialPos = eligible[0]?.position ?? {
+                        latitude: 41.89021,
+                        longitude: 12.492231,
+                      };
                       setPortalDraft({
                         name: '',
                         fromViewpointId: eligible[0]?.id || '',
@@ -681,6 +702,8 @@ export default function FloorItinerary() {
                         isAscending: true,
                         elevationDeltaMeters: 4.5,
                         triggerRadiusMeters: 15,
+                        latitude: Number((initialPos.latitude + 0.00004).toFixed(6)),
+                        longitude: Number((initialPos.longitude + 0.00004).toFixed(6)),
                       });
                     }}
                   >
@@ -814,6 +837,10 @@ export default function FloorItinerary() {
                             className="mt-4 bg-amber-600 hover:bg-amber-700 text-white cursor-pointer"
                             onClick={() => {
                               setPortalError('');
+                              const initialPos = eligible[0]?.position ?? {
+                                latitude: 41.89021,
+                                longitude: 12.492231,
+                              };
                               setPortalDraft({
                                 name: '',
                                 fromViewpointId: eligible[0]?.id || '',
@@ -821,6 +848,8 @@ export default function FloorItinerary() {
                                 isAscending: true,
                                 elevationDeltaMeters: 4.5,
                                 triggerRadiusMeters: 15,
+                                latitude: Number((initialPos.latitude + 0.00004).toFixed(6)),
+                                longitude: Number((initialPos.longitude + 0.00004).toFixed(6)),
                               });
                             }}
                           >
@@ -877,6 +906,11 @@ export default function FloorItinerary() {
                                   disabled={busy}
                                   onClick={() => {
                                     setPortalError('');
+                                    const coords =
+                                      portal.coordinates ??
+                                      (portal.fromViewpointId
+                                        ? stops.get(portal.fromViewpointId)?.position
+                                        : null);
                                     setPortalDraft({
                                       id: portal.id,
                                       name: portal.name,
@@ -886,6 +920,8 @@ export default function FloorItinerary() {
                                       isAscending: portal.isAscending,
                                       elevationDeltaMeters: portal.elevationDeltaMeters,
                                       triggerRadiusMeters: portal.triggerRadiusMeters,
+                                      latitude: coords?.latitude ?? 41.89021,
+                                      longitude: coords?.longitude ?? 12.492231,
                                     });
                                   }}
                                 >
@@ -917,14 +953,15 @@ export default function FloorItinerary() {
             open={Boolean(portalDraft)}
             onOpenChange={(open) => !open && setPortalDraft(null)}
           >
-            <DialogContent className="sm:max-w-[480px]">
+            <DialogContent className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
                   <TbStairs className="size-5 text-amber-600" />
                   <span>{portalDraft?.id ? 'Edit Staircase Portal' : 'Add Staircase Portal'}</span>
                 </DialogTitle>
                 <DialogDescription>
-                  Configure a staircase transition connecting this floor to another level.
+                  Configure an individual staircase or ramp position connecting this floor to
+                  another level.
                 </DialogDescription>
               </DialogHeader>
               {portalDraft && (
@@ -953,18 +990,121 @@ export default function FloorItinerary() {
                       onChange={(e) => setPortalDraft({ ...portalDraft, name: e.target.value })}
                     />
                   </label>
-                  <FieldSelect
-                    label="Anchor Viewpoint (Near Stairs)"
-                    value={portalDraft.fromViewpointId}
-                    options={eligible.map((s) => ({ value: s.id, label: stopLabel(s.id) }))}
-                    onChange={(val) => setPortalDraft({ ...portalDraft, fromViewpointId: val })}
-                  />
-                  <FieldSelect
-                    label="Destination Floor"
-                    value={portalDraft.toFloorId}
-                    options={targetFloorOptions}
-                    onChange={(val) => setPortalDraft({ ...portalDraft, toFloorId: val })}
-                  />
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <FieldSelect
+                      label="Destination Floor"
+                      value={portalDraft.toFloorId}
+                      options={targetFloorOptions}
+                      onChange={(val) => setPortalDraft({ ...portalDraft, toFloorId: val })}
+                    />
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium">Reference Viewpoint</span>
+                        {portalDraft.fromViewpointId &&
+                          stops.get(portalDraft.fromViewpointId)?.position && (
+                            <button
+                              type="button"
+                              className="text-[10px] text-primary hover:underline font-semibold cursor-pointer"
+                              onClick={() => {
+                                const vp = stops.get(portalDraft.fromViewpointId)?.position;
+                                if (vp) {
+                                  setPortalDraft({
+                                    ...portalDraft,
+                                    latitude: Number(vp.latitude.toFixed(6)),
+                                    longitude: Number(vp.longitude.toFixed(6)),
+                                  });
+                                }
+                              }}
+                            >
+                              Snap pin here
+                            </button>
+                          )}
+                      </div>
+                      <FieldSelect
+                        label=""
+                        value={portalDraft.fromViewpointId}
+                        options={eligible.map((s) => ({ value: s.id, label: stopLabel(s.id) }))}
+                        onChange={(val) => {
+                          const vp = stops.get(val)?.position;
+                          setPortalDraft({
+                            ...portalDraft,
+                            fromViewpointId: val,
+                            ...(vp
+                              ? {
+                                  latitude: Number((vp.latitude + 0.00004).toFixed(6)),
+                                  longitude: Number((vp.longitude + 0.00004).toFixed(6)),
+                                }
+                              : {}),
+                          });
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* GPS Coordinates & Interactive Map Picker (Individual Position) */}
+                  <div className="space-y-2.5 rounded-xl border border-border bg-muted/15 p-3.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-primary">
+                        <MapPin className="size-3.5" />
+                        <span>GPS Location Anchor</span>
+                      </div>
+                      <span className="text-[10px] text-muted-foreground">
+                        Drag pin to calibrate position
+                      </span>
+                    </div>
+
+                    <div className="h-52 w-full rounded-xl overflow-hidden border border-border shadow-xs">
+                      <LocationPickerMap
+                        latitude={portalDraft.latitude}
+                        longitude={portalDraft.longitude}
+                        onChange={(lat, lng) =>
+                          setPortalDraft((prev) =>
+                            prev ? { ...prev, latitude: lat, longitude: lng } : null
+                          )
+                        }
+                        className="size-full"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[11px] font-medium text-foreground mb-1">
+                          Latitude <span className="text-destructive">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          step="any"
+                          required
+                          value={portalDraft.latitude}
+                          onChange={(e) =>
+                            setPortalDraft((prev) =>
+                              prev ? { ...prev, latitude: e.target.value } : null
+                            )
+                          }
+                          className="w-full px-3 py-1.5 bg-background border border-border rounded-lg text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-foreground mb-1">
+                          Longitude <span className="text-destructive">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          step="any"
+                          required
+                          value={portalDraft.longitude}
+                          onChange={(e) =>
+                            setPortalDraft((prev) =>
+                              prev ? { ...prev, longitude: e.target.value } : null
+                            )
+                          }
+                          className="w-full px-3 py-1.5 bg-background border border-border rounded-lg text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-3">
                     <label className="block text-sm">
                       Transition Direction
