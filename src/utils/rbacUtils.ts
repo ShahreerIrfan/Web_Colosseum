@@ -42,13 +42,6 @@ export const ADMIN_MODULES = [
     actions: crud,
   },
   {
-    id: 'pedestrianRoutes',
-    name: 'Pedestrian Routes',
-    key: 'Pedestrian Street Routes',
-    description: 'Published walking routes between landmarks',
-    actions: crud,
-  },
-  {
     id: 'rbac',
     name: 'Role Management',
     key: 'Role-Based Access Control',
@@ -90,7 +83,6 @@ const ROLE_ACTIONS: Record<
     floors: ['Create', 'Read', 'Update'],
     viewpoints: crud,
     floorItinerary: crud,
-    pedestrianRoutes: crud,
     rbac: ['Read'],
     users: crud,
     languages: ['Create', 'Read', 'Update'],
@@ -98,14 +90,12 @@ const ROLE_ACTIONS: Record<
   moderator: {
     landmarks: ['Read', 'Update'],
     viewpoints: ['Create', 'Read', 'Update'],
-    pedestrianRoutes: ['Read'],
     languages: ['Read', 'Update'],
   },
   user: {
     landmarks: ['Read'],
     floors: ['Read'],
     viewpoints: ['Read'],
-    pedestrianRoutes: ['Read'],
     languages: ['Read'],
   },
 };

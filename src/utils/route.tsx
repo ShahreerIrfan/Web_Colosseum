@@ -1,6 +1,5 @@
 import { ProtectedLayout, PublicLayout } from '@/components/Layout';
 import AdminLogin from '@/pages/AdminLogin';
-import PedestrianRoutes from '@/pages/admin/PedestrianRoutes';
 import FloorItinerary from '@/pages/admin/FloorItinerary';
 import Languages from '@/pages/admin/Languages';
 import ErrorPage from '@/pages/admin/ErrorPage';
@@ -72,14 +71,6 @@ export const router = createBrowserRouter([
         element: (
           <RbacGuard moduleName="Floor Itinerary">
             <FloorItinerary />
-          </RbacGuard>
-        ),
-      },
-      {
-        path: 'pedestrian-routes',
-        element: (
-          <RbacGuard moduleName="Pedestrian Street Routes">
-            <PedestrianRoutes />
           </RbacGuard>
         ),
       },

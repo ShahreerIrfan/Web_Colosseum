@@ -47,7 +47,6 @@ const navTargets: Record<ModuleId, Pick<NavModuleItem, 'url' | 'icon'>> = {
   floors: { url: '/admin/dashboard/floors', icon: Layers },
   viewpoints: { url: '/admin/dashboard/viewpoints', icon: Eye },
   floorItinerary: { url: '/admin/dashboard/viewpoints/itinerary', icon: Route },
-  pedestrianRoutes: { url: '/admin/dashboard/pedestrian-routes', icon: Route },
   rbac: { url: '/admin/dashboard/rbac', icon: ShieldCheck },
   users: { url: '/admin/dashboard/users', icon: UserCog },
   languages: { url: '/admin/dashboard/languages', icon: Globe },
@@ -59,13 +58,7 @@ const navigation = ADMIN_MODULES.map(({ id, name, key }) => ({
   moduleName: key,
   ...navTargets[id],
 }));
-const touristSpotIds: readonly ModuleId[] = [
-  'landmarks',
-  'floors',
-  'viewpoints',
-  'floorItinerary',
-  'pedestrianRoutes',
-];
+const touristSpotIds: readonly ModuleId[] = ['landmarks', 'floors', 'viewpoints', 'floorItinerary'];
 
 export const AppSidebar: React.FC = () => {
   const location = useLocation();
