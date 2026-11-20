@@ -133,11 +133,10 @@ export function PedestrianRouteMap({
       L.marker([position.latitude, position.longitude], {
         interactive: false,
         icon: L.divIcon({
-          className:
-            'flex items-center justify-center rounded-md bg-[#8b261e] text-white shadow-md border-[1.5px] border-white font-bold text-[11px] px-1 select-none',
-          html: `<span style="display:block;line-height:1;letter-spacing:-0.3px;">${orderNum}</span>`,
-          iconSize: [34, 22],
-          iconAnchor: [17, 11],
+          className: '',
+          html: `<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;background-color:#8b261e;color:#ffffff;border:1.5px solid #ffffff;border-radius:6px;box-shadow:0 2px 4px rgba(0,0,0,0.25);font-size:11px;font-weight:700;line-height:1;text-align:center;box-sizing:border-box;user-select:none;letter-spacing:-0.2px;">${orderNum}</div>`,
+          iconSize: [36, 22],
+          iconAnchor: [18, 11],
         }),
       }).addTo(group);
     }
@@ -146,9 +145,8 @@ export function PedestrianRouteMap({
       L.marker([portal.position.latitude, portal.position.longitude], {
         interactive: false,
         icon: L.divIcon({
-          className:
-            'flex items-center justify-center rounded-md bg-amber-500 text-white shadow-md border-[1.5px] border-white select-none',
-          html: `<span class="flex items-center justify-center w-full h-full">${stairsSvg}</span>`,
+          className: '',
+          html: `<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;background-color:#f59e0b;color:#ffffff;border:1.5px solid #ffffff;border-radius:6px;box-shadow:0 2px 4px rgba(0,0,0,0.25);box-sizing:border-box;user-select:none;">${stairsSvg}</div>`,
           iconSize: [28, 24],
           iconAnchor: [14, 12],
         }),
